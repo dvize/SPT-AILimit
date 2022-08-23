@@ -87,6 +87,7 @@ namespace dvize.AILimit
                 //allplayers contains AI apparently. filter for player and AI
                 Player player = gameWorld.RegisteredPlayers[i];
 
+
                 if (!player.IsYourPlayer)
                 {
                     //find distance to player add to list

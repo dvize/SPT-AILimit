@@ -21,6 +21,8 @@ namespace dvize.AILimit
         internal static ConfigEntry<int> BotLimit;
         internal static ConfigEntry<int> BotDistance;
         private Transform _mainCameraTransform;
+        private List<AIDistance> distList = new List<AIDistance>();
+        private Vector3 cameraPosition;
         private void Awake()
         {
             PluginEnabled = Config.Bind(
@@ -63,78 +65,84 @@ namespace dvize.AILimit
                     return;
                 }
 
-                Vector3 cameraPosition = this._mainCameraTransform.position;
-
-                var distList = new List<AIDistance>();
+                distList.Clear();
+                cameraPosition = this._mainCameraTransform.position;
 
                 //check list of bots for distance to player
 
 
-                checkBotDistance(distList, cameraPosition);
+                CheckBotDistance(distList, cameraPosition);
 
-                disableBots(distList);
+                DisableBots(distList);
 
             }
             
         }
 
-        private void checkBotDistance(List<AIDistance> distList,Vector3 cameraPosition )
+        private void CheckBotDistance(List<AIDistance> distList,Vector3 cameraPosition )
         {
+
             var gameWorld = Singleton<GameWorld>.Instance;
+
 
             for (int i = 0; i < gameWorld.RegisteredPlayers.Count; i++)
             {
                 //allplayers contains AI apparently. filter for player and AI
-                Player player = gameWorld.RegisteredPlayers[i];
-
-
-                if (!player.IsYourPlayer)
+                    
+                if (!gameWorld.RegisteredPlayers[i].IsYourPlayer)
                 {
                     //find distance to player add to list
-                    var tempElement = new AIDistance();
-                    tempElement.element = i;
-                    tempElement.distance = Vector3.Distance(cameraPosition, player.Position);
+                    var tempElement = new AIDistance
+                    {
+                        Element = i,
+                        Distance = Vector3.Distance(cameraPosition, gameWorld.RegisteredPlayers[i].Position)
+                    };
 
                     distList.Add(tempElement);
-                    player.enabled = false;
+                    gameWorld.RegisteredPlayers[i].enabled = false;
                 }
             }
+
+            return;
         }
 
-        private async void disableBots(List<AIDistance> distList)
+        private void DisableBots(List<AIDistance> distList)
         {
             //need to sort list for the distances closest to player and pick the first up to bot limit
             //list only contains bot distance and element in allplayereelement.
-            await Task.Delay(100);
-            distList.Sort((x, y) => x.distance.CompareTo(y.distance));
 
-            int botCount = 0;
-
-            for (int i = 0; i < distList.Count; i++)
+            if (!distList.IsNullOrEmpty())
             {
-                if (botCount > Plugin.BotLimit.Value)
+                distList.Sort((x, y) => x.Distance.CompareTo(y.Distance));
+
+                int botCount = 0;
+
+                for (int i = 0; i < distList.Count; i++)
                 {
-                    break;
-                }
+                    if (botCount > Plugin.BotLimit.Value)
+                    {
+                        break;
+                    }
 
-                await Task.Delay(100);
+                    if ((distList[i].Distance <= Plugin.BotDistance.Value) && (botCount <= Plugin.BotLimit.Value))
+                    {
+                        
+                        //player.enabled = true;
 
-                if ((distList[i].distance <= Plugin.BotDistance.Value) && (botCount <= Plugin.BotLimit.Value))
-                {
-                    Player player = Singleton<GameWorld>.Instance.RegisteredPlayers[distList[i].element];
-                    //player.enabled = true;
-
-                    player.enabled = true;
-                    botCount++;
+                        Singleton<GameWorld>.Instance.RegisteredPlayers[distList[i].Element].enabled = true;
+                        botCount++;
+                    }
                 }
             }
+            
+            return;
         }
 
     }
     public class AIDistance
     {
-        public int element { get; set; }
-        public float distance { get; set; }
+        public int Element { get; set; }
+        public float Distance { get; set; }
     }
 
 }

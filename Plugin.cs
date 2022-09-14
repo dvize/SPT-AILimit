@@ -1,140 +1,52 @@
-﻿using Aki.Reflection.Patching;
+﻿using System;
 using BepInEx;
 using BepInEx.Configuration;
 using Comfort.Common;
 using EFT;
-using EFT.UI;
-using System;
-using System.Collections.Generic;
-using System.Reflection;
-using System.Threading.Tasks;
 using UnityEngine;
 
-
-namespace dvize.AILimit
+namespace Nexus.AIDisabler
 {
-    [BepInPlugin("com.dvize.ailimit", "dvize.ailimit", "1.1.0")]
+	[BepInPlugin("com.pandahhcorp.aidisabler", "AIDisabler", "1.0.0")]
+	public class AIDisablerPlugin : BaseUnityPlugin
+	{
+		private ConfigEntry<Single> _configRange;
+		private Transform _mainCameraTransform;
 
-    public class Plugin : BaseUnityPlugin
-    {
-        internal static ConfigEntry<bool> PluginEnabled;
-        internal static ConfigEntry<int> BotLimit;
-        internal static ConfigEntry<int> BotDistance;
-        private Transform _mainCameraTransform;
-        private void Awake()
-        {
-            PluginEnabled = Config.Bind(
-                "Main Settings",
-                "Plugin on/off",
-                true,
-                "");
+		private void Awake()
+		{
+			this.Logger.LogInfo("Loading: AIDisabler");
+			this._configRange =
+				this.Config.Bind("General", "Range", 100f, "All AI outside of this range will be disabled");
+			this.Logger.LogInfo("Loaded: AIDisabler");
+		}
 
-            BotDistance = Config.Bind(
-                "Main Settings",
-                "Bot Distance",
-                400,
-                "Set Max Distance to activate bots");
+		private void FixedUpdate()
+		{
+			if (!Singleton<GameWorld>.Instantiated)
+			{
+				return;
+			}
 
-            BotLimit = Config.Bind(
-                "Main Settings",
-                "Bot Limit (At Distance)",
-                7,
-                "Based on your distance selected, limits up to this many # of bots moving at one time");
+			if (this._mainCameraTransform == null)
+			{
+				Camera camera = Camera.main;
+				if (camera != null)
+				{
+					this._mainCameraTransform = camera.transform;
+				}
 
-        }
+				return;
+			}
 
-        private void FixedUpdate()
-        {
-            if (Plugin.PluginEnabled.Value)
-            {
-                if (!Singleton<GameWorld>.Instantiated)
-                {
-                    return;
-                }
-
-                if (this._mainCameraTransform == null)
-                {
-                    Camera camera = Camera.main;
-                    if (camera != null)
-                    {
-                        this._mainCameraTransform = camera.transform;
-                    }
-
-                    return;
-                }
-
-                Vector3 cameraPosition = this._mainCameraTransform.position;
-
-                var distList = new List<AIDistance>();
-
-                //check list of bots for distance to player
-
-
-                checkBotDistance(distList, cameraPosition);
-
-                disableBots(distList);
-
-            }
-            
-        }
-
-        private void checkBotDistance(List<AIDistance> distList,Vector3 cameraPosition )
-        {
-            var gameWorld = Singleton<GameWorld>.Instance;
-
-            for (int i = 0; i < gameWorld.RegisteredPlayers.Count; i++)
-            {
-                //allplayers contains AI apparently. filter for player and AI
-                Player player = gameWorld.RegisteredPlayers[i];
-
-
-                if (!player.IsYourPlayer)
-                {
-                    //find distance to player add to list
-                    var tempElement = new AIDistance();
-                    tempElement.element = i;
-                    tempElement.distance = Vector3.Distance(cameraPosition, player.Position);
-
-                    distList.Add(tempElement);
-                    player.enabled = false;
-                }
-            }
-        }
-
-        private async void disableBots(List<AIDistance> distList)
-        {
-            //need to sort list for the distances closest to player and pick the first up to bot limit
-            //list only contains bot distance and element in allplayereelement.
-            await Task.Delay(100);
-            distList.Sort((x, y) => x.distance.CompareTo(y.distance));
-
-            int botCount = 0;
-
-            for (int i = 0; i < distList.Count; i++)
-            {
-                if (botCount > Plugin.BotLimit.Value)
-                {
-                    break;
-                }
-
-                await Task.Delay(100);
-
-                if ((distList[i].distance <= Plugin.BotDistance.Value) && (botCount <= Plugin.BotLimit.Value))
-                {
-                    Player player = Singleton<GameWorld>.Instance.RegisteredPlayers[distList[i].element];
-                    //player.enabled = true;
-
-                    player.enabled = true;
-                    botCount++;
-                }
-            }
-        }
-
-    }
-    public class AIDistance
-    {
-        public int element { get; set; }
-        public float distance { get; set; }
-    }
-
+			Vector3 cameraPosition = this._mainCameraTransform.position;
+			foreach (Player player in Singleton<GameWorld>.Instance.RegisteredPlayers)
+			{
+				if (!player.IsYourPlayer)
+				{
+					player.enabled = Vector3.Distance(cameraPosition, player.Position) <= this._configRange.Value;
+				}
+			}
+		}
+	}
 }

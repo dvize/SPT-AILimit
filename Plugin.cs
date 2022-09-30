@@ -13,15 +13,15 @@ using UnityEngine;
 
 namespace dvize.AILimit
 {
-    [BepInPlugin("com.dvize.ailimit", "dvize.ailimit", "1.0.0")]
+    [BepInPlugin("com.dvize.ailimit", "dvize.ailimit", "1.1.0")]
 
     public class Plugin : BaseUnityPlugin
     {
-        internal static ConfigEntry<bool> PluginEnabled;
-        internal static ConfigEntry<int> BotLimit;
-        internal static ConfigEntry<int> BotDistance;
-        private Transform _mainCameraTransform;
-        private void Awake()
+        public static ConfigEntry<bool> PluginEnabled;
+        public static ConfigEntry<int> BotLimit;
+        public static ConfigEntry<int> BotDistance;
+        
+        internal void Awake()
         {
             PluginEnabled = Config.Bind(
                 "Main Settings",
@@ -43,11 +43,12 @@ namespace dvize.AILimit
 
         }
 
+        List<AIDistance> distList = new List<AIDistance>();
+        Transform _mainCameraTransform;
         private void FixedUpdate()
         {
             if (Plugin.PluginEnabled.Value)
             {
-                var gameWorld = Singleton<GameWorld>.Instance;
 
                 if (!Singleton<GameWorld>.Instantiated)
                 {
@@ -65,33 +66,32 @@ namespace dvize.AILimit
                     return;
                 }
 
+                var gameWorld = Singleton<GameWorld>.Instance;
                 Vector3 cameraPosition = this._mainCameraTransform.position;
-
-                var distList = new List<AIDistance>();
+                distList.Clear();
+                //var distList = new List<AIDistance>();
 
                 //check list of bots for distance to player
 
                 for (int i = 0; i < gameWorld.RegisteredPlayers.Count; i++)
                 {
-                    //allplayers contains AI apparently. filter for player and AI
-                    Player player = gameWorld.RegisteredPlayers[i];
 
-                    if (!player.IsYourPlayer)
+                    if (!gameWorld.RegisteredPlayers[i].IsYourPlayer)
                     {
                         //find distance to player add to list
-                        var tempElement = new AIDistance();
-                        tempElement.element = i;
-                        tempElement.distance = Vector3.Distance(cameraPosition, player.Position);
+                        var tempElement = new AIDistance
+                        {
+                            element = i,
+                            distance = Vector3.Distance(cameraPosition, gameWorld.RegisteredPlayers[i].Position)
+                        };
 
                         distList.Add(tempElement);
-                        player.enabled = false;
-
+                        gameWorld.RegisteredPlayers[i].enabled = false;
                     }
 
                 }
 
                 //need to sort list for the distances closest to player and pick the first up to bot limit
-                //list only contains bot distance and element in allplayereelement.
 
                 distList.Sort((x, y) => x.distance.CompareTo(y.distance));
 
@@ -99,20 +99,20 @@ namespace dvize.AILimit
 
                 for (int i = 0; i < distList.Count; i++)
                 {
-                    if (botCount > Plugin.BotLimit.Value)
+                    if ((botCount >= Plugin.BotLimit.Value) || (distList[i].distance > Plugin.BotDistance.Value))
                     {
                         break;
                     }
 
-                    if ((distList[i].distance <= Plugin.BotDistance.Value) && (botCount <= Plugin.BotLimit.Value))
+                    if ((distList[i].distance <= Plugin.BotDistance.Value) && (botCount < Plugin.BotLimit.Value))
                     {
-                        Player player = gameWorld.RegisteredPlayers[distList[i].element];
-                        player.enabled = true;
+                        gameWorld.RegisteredPlayers[distList[i].element].enabled = true;
                         botCount++;
                     }
 
                 }
 
+                
             }
 
         }

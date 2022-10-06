@@ -1,26 +1,36 @@
 ﻿using Aki.Reflection.Patching;
 using BepInEx;
 using BepInEx.Configuration;
+using BepInEx.Logging;
 using Comfort.Common;
 using EFT;
+using EFT.Interactive;
 using EFT.UI;
+using EFT.UI.Health;
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Reflection;
 using System.Threading.Tasks;
 using UnityEngine;
 
 
-namespace dvize.AILimit
+namespace dvize.BulletTime
 {
-    [BepInPlugin("com.dvize.ailimit", "dvize.ailimit", "1.1.0")]
+    [BepInPlugin("com.dvize.BulletTime", "dvize.BulletTime", "1.0.0")]
 
     public class Plugin : BaseUnityPlugin
     {
         public static ConfigEntry<bool> PluginEnabled;
-        public static ConfigEntry<int> BotLimit;
-        public static ConfigEntry<int> BotDistance;
-        
+        public static ConfigEntry<float> BulletTimeScale;
+        public static ConfigEntry<int> MaxBulletTimeSeconds;
+        public static ConfigEntry<int> CooldownPeriodSeconds;
+        public static ConfigEntry<KeyboardShortcut> KeyBulletTime;
+        public float CoolDownElapsedSecond = 0f;
+        public float BulletTimeElapsedSecond = 0f;
+        public bool startBulletTime = false;
+        public bool firstTimeTriggered = false;
+
         internal void Awake()
         {
             PluginEnabled = Config.Bind(
@@ -29,87 +39,90 @@ namespace dvize.AILimit
                 true,
                 "");
 
-            BotDistance = Config.Bind(
+            BulletTimeScale = Config.Bind(
                 "Main Settings",
-                "Bot Distance",
-                400,
-                "Set Max Distance to activate bots");
+                "Bullet Time Scale",
+                0.40f,
+                "Set how slow the Bullet Time Scale goes to");
 
-            BotLimit = Config.Bind(
+            MaxBulletTimeSeconds = Config.Bind(
                 "Main Settings",
-                "Bot Limit (At Distance)",
-                7,
-                "Based on your distance selected, limits up to this many # of bots moving at one time");
+                "Set the Maximum Bullet Time per Session",
+                10,
+                "Set how much your stamina drains per second. No bullet time if no stamina");
 
+            CooldownPeriodSeconds = Config.Bind(
+                "Main Settings",
+                "Set the cooldown period before being able to trigger Bullet Time",
+                120,
+                "Set how much your stamina drains per second. No bullet time if no stamina");
+
+            KeyBulletTime = Config.Bind(
+                "Hotkey for Bullet Time", 
+                "Use Bullet Time", 
+                new KeyboardShortcut(KeyCode.Mouse4),
+                "Key for Bullet Time toggle");
         }
 
-        List<AIDistance> distList = new List<AIDistance>();
-        Transform _mainCameraTransform;
-        private void FixedUpdate()
+        private void Update()
         {
             if (Plugin.PluginEnabled.Value)
             {
-
+                
                 if (!Singleton<GameWorld>.Instantiated)
                 {
                     return;
                 }
 
-                if (this._mainCameraTransform == null)
-                {
-                    Camera camera = Camera.main;
-                    if (camera != null)
-                    {
-                        this._mainCameraTransform = camera.transform;
-                    }
 
-                    return;
+                var player = Singleton<GameWorld>.Instance.AllPlayers[0];
+                CoolDownElapsedSecond += Time.unscaledDeltaTime;
+
+                if (Plugin.KeyBulletTime.Value.IsUp())
+                {
+                    if (!firstTimeTriggered)
+                    {
+                        //Logger.LogInfo("BulletTime: First Key Press - Activate Bullet Time");
+                        firstTimeTriggered = true;
+                        startBulletTime = true;
+                    }
+                    else if (firstTimeTriggered)
+                    {
+                        //Logger.LogInfo("BulletTime: Second Key Press - Deactivate Bullet Time");
+                        startBulletTime = false;
+                        firstTimeTriggered = false;
+                        BulletTimeElapsedSecond = 0f;
+                        CoolDownElapsedSecond = 0f;
+                        Time.timeScale = 1.0f;
+                    }
                 }
 
-                var gameWorld = Singleton<GameWorld>.Instance;
-                Vector3 cameraPosition = this._mainCameraTransform.position;
-                distList.Clear();
-                //var distList = new List<AIDistance>();
-
-                //check list of bots for distance to player
-
-                for (int i = 0; i < gameWorld.RegisteredPlayers.Count; i++)
+               
+                if (startBulletTime)
                 {
+                    //as this is per frame, sufficient stamina only needs to be above 0
+                    //bool staminasufficient = player.Physical.Stamina.Current > 0;
+                    bool cooldowndone = CoolDownElapsedSecond >= Plugin.CooldownPeriodSeconds.Value;
 
-                    if (!gameWorld.RegisteredPlayers[i].IsYourPlayer)
+                    if (cooldowndone)
                     {
-                        //find distance to player add to list
-                        var tempElement = new AIDistance
-                        {
-                            element = i,
-                            distance = Vector3.Distance(cameraPosition, gameWorld.RegisteredPlayers[i].Position)
-                        };
-
-                        distList.Add(tempElement);
-                        gameWorld.RegisteredPlayers[i].enabled = false;
+                        player.enabled = false;
+                        Time.timeScale = Plugin.BulletTimeScale.Value;
+                        player.enabled = true;
+                        BulletTimeElapsedSecond += Time.unscaledDeltaTime;
+                        //Time.fixedDeltaTime = 0.02f * Time.timeScale;
+                        //player.Physical.Stamina.Current -= (elapsedSecond / Plugin.StaminaDrainPerSecond.Value);
                     }
 
-                }
-
-                //need to sort list for the distances closest to player and pick the first up to bot limit
-
-                distList.Sort((x, y) => x.distance.CompareTo(y.distance));
-
-                int botCount = 0;
-
-                for (int i = 0; i < distList.Count; i++)
-                {
-                    if ((botCount >= Plugin.BotLimit.Value) || (distList[i].distance > Plugin.BotDistance.Value))
+                    if (BulletTimeElapsedSecond >= Plugin.MaxBulletTimeSeconds.Value)
                     {
-                        break;
+                        //Logger.LogInfo("BulletTime: Stamina Ran Out");
+                        Time.timeScale = 1.0f;
+                        BulletTimeElapsedSecond = 0f;
+                        CoolDownElapsedSecond = 0f;
+                        startBulletTime = false;
+                        firstTimeTriggered = false; //reset key incase stamina runs out
                     }
-
-                    if ((distList[i].distance <= Plugin.BotDistance.Value) && (botCount < Plugin.BotLimit.Value))
-                    {
-                        gameWorld.RegisteredPlayers[distList[i].element].enabled = true;
-                        botCount++;
-                    }
-
                 }
 
                 
@@ -118,10 +131,4 @@ namespace dvize.AILimit
         }
 
     }
-    public class AIDistance
-    {
-        public int element { get; set; }
-        public float distance { get; set; }
-    }
-
 }

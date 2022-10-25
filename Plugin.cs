@@ -1,26 +1,22 @@
-﻿using Aki.Reflection.Patching;
+﻿
 using BepInEx;
 using BepInEx.Configuration;
 using Comfort.Common;
 using EFT;
-using EFT.UI;
-using System;
 using System.Collections.Generic;
-using System.Reflection;
-using System.Threading.Tasks;
 using UnityEngine;
 
 
 namespace dvize.AILimit
 {
-    [BepInPlugin("com.dvize.ailimit", "dvize.ailimit", "1.1.0")]
+    [BepInPlugin("com.dvize.AIlimit", "dvize.AIlimit", "1.2.0")]
 
     public class Plugin : BaseUnityPlugin
     {
         public static ConfigEntry<bool> PluginEnabled;
         public static ConfigEntry<int> BotLimit;
         public static ConfigEntry<int> BotDistance;
-        
+
         internal void Awake()
         {
             PluginEnabled = Config.Bind(
@@ -69,10 +65,10 @@ namespace dvize.AILimit
                 var gameWorld = Singleton<GameWorld>.Instance;
                 Vector3 cameraPosition = this._mainCameraTransform.position;
                 distList.Clear();
-                //var distList = new List<AIDistance>();
+
 
                 //check list of bots for distance to player
-
+                
                 for (int i = 0; i < gameWorld.RegisteredPlayers.Count; i++)
                 {
 
@@ -86,6 +82,9 @@ namespace dvize.AILimit
                         };
 
                         distList.Add(tempElement);
+                        //gameWorld.RegisteredPlayers[i].enabled = false;
+                        
+                        gameWorld.RegisteredPlayers[i].gameObject.SetActive(false);
                         gameWorld.RegisteredPlayers[i].enabled = false;
                     }
 
@@ -106,22 +105,27 @@ namespace dvize.AILimit
 
                     if ((distList[i].distance <= Plugin.BotDistance.Value) && (botCount < Plugin.BotLimit.Value))
                     {
+                        gameWorld.RegisteredPlayers[distList[i].element].gameObject.SetActive(true);
                         gameWorld.RegisteredPlayers[distList[i].element].enabled = true;
+
                         botCount++;
                     }
 
                 }
 
-                
+
             }
 
         }
 
     }
+    
     public class AIDistance
     {
         public int element { get; set; }
         public float distance { get; set; }
+
     }
 
+    
 }

@@ -9,7 +9,7 @@ using UnityEngine;
 
 namespace dvize.AILimit
 {
-    [BepInPlugin("com.dvize.AIlimit", "dvize.AIlimit", "1.2.0")]
+    [BepInPlugin("com.dvize.AIlimit", "dvize.AIlimit", "1.2.1")]
 
     public class Plugin : BaseUnityPlugin
     {
@@ -34,7 +34,7 @@ namespace dvize.AILimit
             BotLimit = Config.Bind(
                 "Main Settings",
                 "Bot Limit (At Distance)",
-                7,
+                10,
                 "Based on your distance selected, limits up to this many # of bots moving at one time");
 
         }
@@ -84,7 +84,6 @@ namespace dvize.AILimit
                         distList.Add(tempElement);
                         //gameWorld.RegisteredPlayers[i].enabled = false;
                         
-                        gameWorld.RegisteredPlayers[i].gameObject.SetActive(false);
                         gameWorld.RegisteredPlayers[i].enabled = false;
                     }
 
@@ -105,7 +104,6 @@ namespace dvize.AILimit
 
                     if ((distList[i].distance <= Plugin.BotDistance.Value) && (botCount < Plugin.BotLimit.Value))
                     {
-                        gameWorld.RegisteredPlayers[distList[i].element].gameObject.SetActive(true);
                         gameWorld.RegisteredPlayers[distList[i].element].enabled = true;
 
                         botCount++;

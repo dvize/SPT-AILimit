@@ -39,6 +39,10 @@
     <OutputPath>bin\x64\Release\</OutputPath>
   </PropertyGroup>
   <ItemGroup>
+    <Reference Include="0Harmony, Version=2.9.0.0, Culture=neutral, processorArchitecture=MSIL">
+      <SpecificVersion>False</SpecificVersion>
+      <HintPath>..\..\References\0Harmony.dll</HintPath>
+    </Reference>
     <Reference Include="Aki.Reflection">
       <HintPath>..\..\References\Aki.Reflection.dll</HintPath>
     </Reference>

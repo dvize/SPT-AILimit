@@ -15,7 +15,7 @@ using System;
 
 namespace dvize.AILimit
 {
-    [BepInPlugin("com.dvize.AIlimit", "dvize.AIlimit", "1.3.0")]
+    [BepInPlugin("com.dvize.AIlimit", "dvize.AIlimit", "1.4.0")]
 
     public class Plugin : BaseUnityPlugin
     {

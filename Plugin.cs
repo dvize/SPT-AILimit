@@ -11,6 +11,7 @@ using UnityEngine;
 using System.Configuration;
 using EFT.UI;
 using HarmonyLib;
+using System;
 
 namespace dvize.AILimit
 {
@@ -21,7 +22,7 @@ namespace dvize.AILimit
         public static ConfigEntry<bool> PluginEnabled;
         public static ConfigEntry<int> BotLimit;
         public static ConfigEntry<int> BotDistance;
-
+        public static ConfigEntry<float> TimeAfterSpawn;
         internal void Awake()
         {
             PluginEnabled = Config.Bind(
@@ -42,12 +43,21 @@ namespace dvize.AILimit
                 10,
                 "Based on your distance selected, limits up to this many # of bots moving at one time");
 
+            TimeAfterSpawn = Config.Bind(
+                "Main Settings",
+                "Time After Spawn",
+                10f,
+                "Time (sec) to wait before disabling");
+
         }
 
         List<AIDistance> distList = new List<AIDistance>();
         Transform _mainCameraTransform;
         GameWorld gameWorld = new GameWorld();
         Vector3 cameraPosition = new Vector3();
+        AIDistance tempElement = new AIDistance();
+        AIDistance searchElement = new AIDistance();
+        bool isdead;
         private void Update()
         {
             if (Plugin.PluginEnabled.Value)
@@ -75,30 +85,50 @@ namespace dvize.AILimit
                     gameWorld = Singleton<GameWorld>.Instance;
                     cameraPosition = this._mainCameraTransform.position;
 
-                    distList.Clear();
+                    //distList.Clear();
 
 
                     //check list of bots for distance to player
 
                     for (int i = 0; i < gameWorld.RegisteredPlayers.Count; i++)
                     {
-                    // bool isDead = Traverse.Create(gameWorld.RegisteredPlayers[i]).Field("_isDeadAlready").GetValue<bool>();
-                        
+                        //determine if at least camera is spawned to potentially add to list
                         if ((!gameWorld.RegisteredPlayers[i].IsYourPlayer) && (gameWorld.RegisteredPlayers[i].CameraPosition != null))
                         {
-                            //find distance to player add to list
-
-                            var tempElement = new AIDistance
+                            //figure out if its in the list
+                            searchElement = distList.Find(x => x.id == gameWorld.RegisteredPlayers[i].Id);
+                            if (searchElement != null)
                             {
-                                element = i,
-                                distance = Vector3.Distance(cameraPosition, gameWorld.RegisteredPlayers[i].Position),
-                            };
+                                //increment Timer for in raid
+                                searchElement.timesincespawn += Time.deltaTime;
 
-                            distList.Add(tempElement);
-
-                            gameWorld.RegisteredPlayers[i].enabled = false;
+                                //check to make sure timer exceeded before able to disable.
+                                if (searchElement.timesincespawn > Plugin.TimeAfterSpawn.Value)
+                                {
+                                    gameWorld.RegisteredPlayers[i].enabled = false;
+                                }
                                 
+                            }
+                            else
+                            {                             
+                                //its not found in list so should be new spawn
+                                tempElement = new AIDistance
+                                {
+                                    id = gameWorld.RegisteredPlayers[i].Id,     //use Id instead so can track without clearing distList
+                                    distance = Vector3.Distance(cameraPosition, gameWorld.RegisteredPlayers[i].Position), //find distance to player add to list
+                                    timesincespawn = 0f
+                                   
+                                };
 
+                                //create handler for this player to remove him from the distlist on death.
+                                
+                                gameWorld.RegisteredPlayers[i].OnPlayerDeadOrUnspawn += (deadArgs) =>
+                                {
+                                    distList.Remove(distList.Find(x => x.id == deadArgs.Id));
+                                };
+                                
+                                distList.Add(tempElement);
+                            }
                         }
 
                     }
@@ -107,7 +137,7 @@ namespace dvize.AILimit
 
                     distList.Sort((x, y) => x.distance.CompareTo(y.distance));
 
-                    int botCount = 0;
+                    int botCount = 0; 
 
                     for (int i = 0; i < distList.Count; i++)
                     {
@@ -116,30 +146,37 @@ namespace dvize.AILimit
                             break;
                         }
 
-                        if ((distList[i].distance <= Plugin.BotDistance.Value) && (botCount < Plugin.BotLimit.Value))
+                        if ((distList[i].distance <= Plugin.BotDistance.Value) && (botCount < Plugin.BotLimit.Value) && (distList[i].timesincespawn >= Plugin.TimeAfterSpawn.Value))
                         {
+                            gameWorld.RegisteredPlayers.ForEach(_player =>
+                            {
+                                if (_player.Id == distList[i].id)
+                                {
+                                    _player.enabled = true;
+                                    botCount++;
+                                    
+                                }
+                            });
 
-                            gameWorld.RegisteredPlayers[distList[i].element].enabled = true;
-                            botCount++;
                         }
-
                     }
                 }
                 catch
                 {
 
                 }
-                
+
             }
 
         }
 
     }
     
-    public class AIDistance
+public class AIDistance
     {
-        public int element { get; set; }
+        public int id { get; set; }
         public float distance { get; set; }
+        public float timesincespawn { get; set; }
 
     }
 

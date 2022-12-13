@@ -79,7 +79,7 @@ namespace dvize.AILimit
 
 
                 AddBotsInSync(gameWorld);
-                startTimers();
+                startTimers(gameWorld);
                 AddBotDistance();
                 DisableBots(gameWorld);
                 SortTheList();
@@ -90,11 +90,12 @@ namespace dvize.AILimit
 
         }
 
-        public void startTimers()
+        public void startTimers(GameWorld gameWorld)
         {
             foreach (botPlayer bot in distListofBots)
             {
-                if (bot.timer.Enabled == false)
+                var tempplayer = gameWorld.RegisteredPlayers.FirstOrDefault(x => x.Id == bot.Id);
+                if ((bot.timer.Enabled == false) && (tempplayer.Transform.position != null))
                 {
                     bot.timer.Enabled = true;
                     bot.timer.Start();

@@ -4,7 +4,7 @@
   <PropertyGroup>
     <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
     <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
-    <ProjectGuid>{8FDFC616-1704-4056-A87E-2783692CC153}</ProjectGuid>
+    <ProjectGuid>{A4E590D6-3C04-419D-A00D-B0A7E6C9BD7D}</ProjectGuid>
     <OutputType>Library</OutputType>
     <AppDesignerFolder>Properties</AppDesignerFolder>
     <RootNamespace>dvize.AILimit</RootNamespace>
@@ -54,9 +54,6 @@
     </Reference>
     <Reference Include="Comfort">
       <HintPath>..\..\References\Comfort.dll</HintPath>
-    </Reference>
-    <Reference Include="HPCsharp, Version=3.16.5.0, Culture=neutral, processorArchitecture=AMD64">
-      <HintPath>packages\HPCsharp.3.16.5\lib\netstandard2.0\HPCsharp.dll</HintPath>
     </Reference>
     <Reference Include="System" />
     <Reference Include="UnityEngine">

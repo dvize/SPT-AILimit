@@ -2,18 +2,10 @@
 using BepInEx.Configuration;
 using Comfort.Common;
 using EFT;
-using EFT.Interactive;
-using System.Reflection;
 using System.Collections.Generic;
 using UnityEngine;
-using System.Configuration;
-using EFT.UI;
-using HarmonyLib;
-using System;
 using System.Timers;
-using System.Linq;
-using System.Net;
-using static Streamer;
+using System;
 
 namespace dvize.AILimit
 {
@@ -36,7 +28,7 @@ namespace dvize.AILimit
             BotDistance = Config.Bind(
                 "Main Settings",
                 "Bot Distance",
-                400f,
+                200f,
                 "Set Max Distance to activate bots");
 
             BotLimit = Config.Bind(
@@ -48,13 +40,11 @@ namespace dvize.AILimit
             TimeAfterSpawn = Config.Bind(
                 "Main Settings",
                 "Time After Spawn",
-                20f,
+                10f,
                 "Time (sec) to wait before disabling");
         }
 
-        public static List<botPlayer> distListofBots = new List<botPlayer>();
-        Transform _mainCameraTransform;
-        GameWorld gameWorld = new GameWorld();
+        public static GameWorld gameWorld = new GameWorld();
         private void Update()
         {
             if (Plugin.PluginEnabled.Value)
@@ -64,171 +54,109 @@ namespace dvize.AILimit
                     return;
                 }
 
-                if (this._mainCameraTransform == null)
-                {
-                    Camera camera = Camera.main;
-                    if (camera != null)
-                    {
-                        this._mainCameraTransform = camera.transform;
-                    }
-
-                    return;
-                }
-
                 gameWorld = Singleton<GameWorld>.Instance;
-
-
-                AddBotsInSync(gameWorld);
-                startTimers(gameWorld);
-                AddBotDistance();
-                DisableBots(gameWorld);
-                SortTheList();
-
-                EnableBots(gameWorld);
-                
-            }
-
-        }
-
-        public void startTimers(GameWorld gameWorld)
-        {
-            foreach (botPlayer bot in distListofBots)
-            {
-                var tempplayer = gameWorld.RegisteredPlayers.FirstOrDefault(x => x.Id == bot.Id);
-                if ((bot.timer.Enabled == false) && (tempplayer.Transform.position != null))
+                try
                 {
-                    bot.timer.Enabled = true;
-                    bot.timer.Start();
-                }             
-            }
-        }
-        public void AddBotsInSync(GameWorld gameWorld)
-        {
-            foreach (Player player in gameWorld.RegisteredPlayers)
-            {
-                if (!player.IsYourPlayer)
-                {
-                    if (!distListofBots.Any(x => x.Id == player.Id))
-                    {
-                        distListofBots.Add(new botPlayer(player));
-                        continue;
-                    }
+                    UpdateBots(gameWorld);
                 }
-            }
-        }
-        public void AddBotDistance()
-        {
-            foreach (Player player in gameWorld.RegisteredPlayers)
-            {
-                if (player == null)
+                catch (Exception e)
                 {
-                    continue;
+                    Logger.LogInfo(e);
                 }
-                
-                //need AI check so it doesn't pull player in.
-                if (!player.IsYourPlayer)
-                {
-                    //check if they on list.. if they are then add distance
-                    foreach (botPlayer bot in distListofBots)
-                    {
-                        if (bot.Id == player.Id)
-                        {
-                            bot.Distance = Vector3.Distance(player.Transform.position, _mainCameraTransform.position);
-                            break;
-                        }
-                    }
-                }
+
             }
+
         }
-        public void EnableBots(GameWorld gameWorld)
+
+        public static Dictionary<int, Player> playerMapping = new Dictionary<int, Player>();
+        public static Dictionary<int, botPlayer> botMapping = new Dictionary<int, botPlayer>();
+        public static List<botPlayer> botList = new List<botPlayer>();
+        public static Player player;
+        public static botPlayer bot;
+        public void UpdateBots(GameWorld gameWorld)
         {
+
             int botCount = 0;
-            
-            for (int i = 0; i < distListofBots.Count; i++)
+
+            for (int i = 0; i < gameWorld.RegisteredPlayers.Count; i++)
             {
-                if (distListofBots[i].Distance > Plugin.BotDistance.Value)
+                player = gameWorld.RegisteredPlayers[i];
+                if (!player.IsYourPlayer)
                 {
-                    break;
-                }
-
-                //no need to check for time as they won't be on list unless timer elapsed
-                if ((distListofBots[i].Distance <= Plugin.BotDistance.Value) && (botCount < Plugin.BotLimit.Value) &&
-                    distListofBots[i].eligibleNow)
-                {
-                        foreach(Player _player in gameWorld.RegisteredPlayers)
-                        {
-                            if (_player.Id == distListofBots[i].Id)
-                            {
-                                _player.enabled = true;
-                                //_player.gameObject.SetActive(true);
-                                botCount++;
-                                break;
-                            }
-                        }
-                    }
-                }
-        }
-
-        public void SortTheList()
-        {
-            distListofBots.Sort((x, y) => x.Distance.CompareTo(y.Distance));
-
-            /*for (int i = 1; i < distListofBots.Count; i++)
-            {
-                int j = i - 1;
-                botPlayer temp = distListofBots[i];
-
-                while (j >= 0 && distListofBots[j].Distance > temp.Distance)
-                {
-                    distListofBots[j + 1] = distListofBots[j];
-                    j--;
-                }
-
-                distListofBots[j + 1] = temp;
-            }*/
-        }
-
-        //should only disable on distList
-        public void DisableBots(GameWorld gameWorld)
-        {
-            for (int i = 0; i < distListofBots.Count; i++)
-            {
-                if (distListofBots[i].eligibleNow)
-                {
-                    //find id in registeredplayers and disable
-                    foreach (Player _player in gameWorld.RegisteredPlayers)
+                    if (!botMapping.ContainsKey(player.Id) && (!playerMapping.ContainsKey(player.Id)))
                     {
-                        if ((_player.Id == distListofBots[i].Id) && (_player.CameraPosition != null))
-                        {
-                            _player.enabled = false;
-                            //_player.gameObject.SetActive(false);
-                            break;
-                        }
+                        playerMapping.Add(player.Id, player);
+                        var tempbotplayer = new botPlayer(player.Id);
+                        botMapping.Add(player.Id, tempbotplayer);
                     }
+
+                    bot = botMapping[player.Id];
+                    bot.Distance = Vector3.Distance(player.Position, gameWorld.RegisteredPlayers[0].Position);
+                    
+                    //add bot if eligible
+                    if (bot.eligibleNow && !botList.Contains(bot))
+                    {
+                        botList.Add(bot);
+                    }
+
+                    if (!bot.timer.Enabled && player.CameraPosition != null)
+                    {
+                        bot.timer.Enabled = true;
+                        bot.timer.Start();
+                    }
+
+                }
+            }
+
+            //add sort by distance
+            if (botList.Count > 1)
+            {
+                //botList = botList.OrderBy(o => o.Distance).ToList();
+                for (int i = 1; i < botList.Count; i++)
+                {
+                    botPlayer current = botList[i];
+                    int j = i - 1;
+                    while (j >= 0 && botList[j].Distance > current.Distance)
+                    {
+                        botList[j + 1] = botList[j];
+                        j--;
+                    }
+                    botList[j + 1] = current;
+                }
+            }
+            
+            for (int i = 0; i < botList.Count; i++)
+            {
+                if (botCount < BotLimit.Value && botList[i].Distance < BotDistance.Value)
+                {
+                    playerMapping[botList[i].Id].enabled = true;
+                    //playerMapping[botList[i].Id].gameObject.SetActive(true);
+                    botCount++;
+                }
+                else
+                {
+                    playerMapping[botList[i].Id].enabled = false;
+                    //playerMapping[botList[i].Id].gameObject.SetActive(false);
                 }
             }
         }
-        
-        static public ElapsedEventHandler AddBotToEligiblePool(botPlayer sender)
+        public static ElapsedEventHandler EligiblePool(botPlayer botplayer)
         {
-            var botplayer = sender as botPlayer;
-            var registeredplayer = Singleton<GameWorld>.Instance.RegisteredPlayers.Find(x => x.Id == botplayer.Id);
-            var distListPlayer = distListofBots.Find(x => x.Id == botplayer.Id);
-
-            //create handler for this player to remove him from the distlist on death.
-            registeredplayer.OnPlayerDeadOrUnspawn += (deadArgs) =>
+            //if this key is not in the dictionary after 10 seconds.. maybe he died.
+            if (!playerMapping.ContainsKey(botplayer.Id))
             {
-                distListofBots.Remove(distListofBots.Find(x => x.Id == deadArgs.Id));
-            };
-            //var gameWorld = Singleton<GameWorld>.Instance;
-            botplayer.timer.Stop();
-            botplayer.eligibleNow = true;
+                playerMapping.Remove(botplayer.Id);
+                botMapping.Remove(botplayer.Id);
+                botList.Remove(botplayer);
+            }
+            else
+            {
+                botplayer.timer.Stop();
+                botplayer.eligibleNow = true;
+            }
             
-            //this adding seems circular .. can't add to list 
-            //distListofBots.Add(new botPlayer(gameWorld.RegisteredPlayers.Find(x => x.Id == botplayer.Id)));
             return null;
         }
-        
         public class botPlayer
         {
             public int Id { get; set; }
@@ -236,20 +164,28 @@ namespace dvize.AILimit
             public bool eligibleNow { get; set; }
 
             public Timer timer = new Timer(Plugin.TimeAfterSpawn.Value * 1000);
-            public botPlayer(Player player)
+            public botPlayer(int newID)
             {
-                this.Id = player.Id;
+                this.Id = newID;
                 this.eligibleNow = false;
                 //this.timer.Start();
                 this.timer.Enabled = false;
                 this.timer.AutoReset = false;
-                this.timer.Elapsed += Plugin.AddBotToEligiblePool(this);
+                this.timer.Elapsed += Plugin.EligiblePool(this);
+
+                //create handler for this player to remove him from the distlist on death.
+                Player registeredplayer = playerMapping[this.Id];
+                registeredplayer.OnPlayerDeadOrUnspawn += (deadArgs) =>
+                {
+                    botList.Remove(botMapping[deadArgs.Id]);
+                    botMapping.Remove(deadArgs.Id);
+                    playerMapping.Remove(deadArgs.Id);
+                };
             }
 
         }
-        
-        
     }
     
+
 }
 

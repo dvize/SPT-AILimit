@@ -145,9 +145,16 @@ namespace dvize.AILimit
             //if this key is not in the dictionary after 10 seconds.. maybe he died.
             if (!playerMapping.ContainsKey(botplayer.Id))
             {
-                playerMapping.Remove(botplayer.Id);
-                botMapping.Remove(botplayer.Id);
-                botList.Remove(botplayer);
+                //playerMapping.Remove(botplayer.Id);
+                if (botMapping.ContainsKey(botplayer.Id))
+                {
+                    botMapping.Remove(botplayer.Id);
+                }
+
+                if (botList.Contains(botplayer))
+                {
+                    botList.Remove(botplayer);
+                }
             }
             else
             {

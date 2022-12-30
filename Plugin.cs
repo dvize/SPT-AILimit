@@ -89,20 +89,27 @@ namespace dvize.AILimit
                         var tempbotplayer = new botPlayer(player.Id);
                         botMapping.Add(player.Id, tempbotplayer);
                     }
-
-                    bot = botMapping[player.Id];
-                    bot.Distance = Vector3.Distance(player.Position, gameWorld.RegisteredPlayers[0].Position);
-                    
-                    //add bot if eligible
-                    if (bot.eligibleNow && !botList.Contains(bot))
+                    else if (!playerMapping.ContainsKey(player.Id))
                     {
-                        botList.Add(bot);
+                        playerMapping.Add(player.Id, player);
                     }
-
-                    if (!bot.timer.Enabled && player.CameraPosition != null)
+                    
+                    if (botMapping.ContainsKey(player.Id))
                     {
-                        bot.timer.Enabled = true;
-                        bot.timer.Start();
+                        bot = botMapping[player.Id];
+                        bot.Distance = Vector3.Distance(player.Position, gameWorld.RegisteredPlayers[0].Position);
+
+                        //add bot if eligible
+                        if (bot.eligibleNow && !botList.Contains(bot))
+                        {
+                            botList.Add(bot);
+                        }
+
+                        if (!bot.timer.Enabled && player.CameraPosition != null)
+                        {
+                            bot.timer.Enabled = true;
+                            bot.timer.Start();
+                        }
                     }
 
                 }
@@ -129,38 +136,28 @@ namespace dvize.AILimit
             {
                 if (botCount < BotLimit.Value && botList[i].Distance < BotDistance.Value)
                 {
-                    playerMapping[botList[i].Id].enabled = true;
-                    //playerMapping[botList[i].Id].gameObject.SetActive(true);
-                    botCount++;
+                    if (playerMapping.ContainsKey(botList[i].Id))
+                    {
+                        playerMapping[botList[i].Id].enabled = true;
+                        //playerMapping[botList[i].Id].gameObject.SetActive(true);
+                        
+                        botCount++;
+                    }
                 }
                 else
                 {
-                    playerMapping[botList[i].Id].enabled = false;
-                    //playerMapping[botList[i].Id].gameObject.SetActive(false);
+                    if (playerMapping.ContainsKey(botList[i].Id))
+                    {
+                        playerMapping[botList[i].Id].enabled = false;
+                        //playerMapping[botList[i].Id].gameObject.SetActive(false);
+                    }
                 }
             }
         }
         public static ElapsedEventHandler EligiblePool(botPlayer botplayer)
         {
-            //if this key is not in the dictionary after 10 seconds.. maybe he died.
-            if (!playerMapping.ContainsKey(botplayer.Id))
-            {
-                //playerMapping.Remove(botplayer.Id);
-                if (botMapping.ContainsKey(botplayer.Id))
-                {
-                    botMapping.Remove(botplayer.Id);
-                }
-
-                if (botList.Contains(botplayer))
-                {
-                    botList.Remove(botplayer);
-                }
-            }
-            else
-            {
-                botplayer.timer.Stop();
-                botplayer.eligibleNow = true;
-            }
+            botplayer.timer.Stop();
+            botplayer.eligibleNow = true;
             
             return null;
         }
@@ -184,9 +181,24 @@ namespace dvize.AILimit
                 Player registeredplayer = playerMapping[this.Id];
                 registeredplayer.OnPlayerDeadOrUnspawn += (deadArgs) =>
                 {
-                    botList.Remove(botMapping[deadArgs.Id]);
-                    botMapping.Remove(deadArgs.Id);
-                    playerMapping.Remove(deadArgs.Id);
+                    botPlayer botValue = null;
+
+                    if (botMapping.ContainsKey(deadArgs.Id))
+                    {
+                        botValue = botMapping[deadArgs.Id];
+                        botMapping.Remove(deadArgs.Id);
+                    }
+                    
+                    if (botList.Contains(botValue))
+                    {
+                        botList.Remove(botValue);
+                    }
+                    
+                    if (playerMapping.ContainsKey(deadArgs.Id))
+                    {
+                        playerMapping.Remove(deadArgs.Id);
+                    }
+                    
                 };
             }
 

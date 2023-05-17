@@ -77,10 +77,16 @@ namespace dvize.AILimit
             int botCount = 0;
 
             var players = gameWorld.RegisteredPlayers;
-            var bots = players.Where(player => !player.IsYourPlayer).Select(player => new botPlayer(player, Vector3.Distance(player.Position, gameWorld.MainPlayer.Position)));
+            var bots = players
+                .Where(p => !p.IsYourPlayer)
+                .Select(p => new botPlayer(p, Vector3.Distance(p.Position, gameWorld.MainPlayer.Position)))
+                .ToDictionary(b => b, b => b.Distance);
 
             botList.Clear();
-            botList.AddRange((IDictionary<botPlayer, float>)bots);
+            foreach (var bot in bots)
+            {
+                botList.Add(bot.Key, bot.Value);
+            }
 
             foreach (var bot in botList)
             {

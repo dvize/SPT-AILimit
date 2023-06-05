@@ -1,35 +1,40 @@
-﻿using BepInEx;
+﻿using System;
+using System.Diagnostics;
+using System.Reflection;
+using AILimit;
+using Aki.Reflection.Patching;
+using BepInEx;
 using BepInEx.Configuration;
-using Comfort.Common;
 using EFT;
-using System.Collections.Generic;
 using UnityEngine;
-using System.Timers;
-using System;
 
-namespace dvize.AILimit
+namespace AIlimit
 {
-    [BepInPlugin("com.dvize.AIlimit", "dvize.AIlimit", "1.4.6")]
-
-    public class Plugin : BaseUnityPlugin
+    [BepInPlugin("com.dvize.AILimit", "dvize.AILimit", "1.4.6")]
+    public class AILimitPlugin : BaseUnityPlugin
     {
         public static ConfigEntry<bool> PluginEnabled;
         public static ConfigEntry<int> BotLimit;
         public static ConfigEntry<float> BotDistance;
         public static ConfigEntry<float> TimeAfterSpawn;
-        internal void Awake()
+
+
+        public static ConfigEntry<float> factoryDistance;
+        public static ConfigEntry<float> interchangeDistance;
+        public static ConfigEntry<float> laboratoryDistance;
+        public static ConfigEntry<float> lighthouseDistance;
+        public static ConfigEntry<float> reserveDistance;
+        public static ConfigEntry<float> shorelineDistance;
+        public static ConfigEntry<float> woodsDistance;
+        public static ConfigEntry<float> customsDistance;
+        public static ConfigEntry<float> tarkovstreetsDistance;
+        private void Awake()
         {
             PluginEnabled = Config.Bind(
                 "Main Settings",
                 "Plugin on/off",
                 true,
                 "");
-
-            BotDistance = Config.Bind(
-                "Main Settings",
-                "Bot Distance",
-                200f,
-                "Set Max Distance to activate bots");
 
             BotLimit = Config.Bind(
                 "Main Settings",
@@ -42,169 +47,78 @@ namespace dvize.AILimit
                 "Time After Spawn",
                 10f,
                 "Time (sec) to wait before disabling");
+
+
+            factoryDistance = Config.Bind(
+                "Map Related",
+                "factory",
+                20.0f,
+                "Distance after which bots are disabled.");
+
+            customsDistance = Config.Bind(
+                "Map Related",
+                "customs",
+                200.0f,
+                "Distance after which bots are disabled.");
+
+            interchangeDistance = Config.Bind(
+                "Map Related",
+                "interchange",
+                200.0f,
+                "Distance after which bots are disabled.");
+
+            laboratoryDistance = Config.Bind(
+                "Map Related",
+                "labs",
+                150.0f,
+                "Distance after which bots are disabled.");
+
+            lighthouseDistance = Config.Bind(
+                "Map Related",
+                "lighthouse",
+                200.0f,
+                "Distance after which bots are disabled.");
+
+            reserveDistance = Config.Bind(
+                "Map Related",
+                "reserve",
+                200.0f,
+                "Distance after which bots are disabled.");
+
+            shorelineDistance = Config.Bind(
+                "Map Related",
+                "shoreline",
+                200.0f,
+                "Distance after which bots are disabled.");
+
+            woodsDistance = Config.Bind(
+                "Map Related",
+                "woods",
+                200.0f,
+                "Distance after which bots are disabled.");
+
+            tarkovstreetsDistance = Config.Bind(
+                "Map Related",
+                "streets",
+                200.0f,
+                "Distance after which bots are disabled.");
+
+
+            new NewGamePatch().Enable();
         }
 
-        public static GameWorld gameWorld = new GameWorld();
-        private void Update()
+    }
+
+    //re-initializes each new game
+    internal class NewGamePatch : ModulePatch
+    {
+        protected override MethodBase GetTargetMethod() => typeof(GameWorld).GetMethod(nameof(GameWorld.OnGameStarted));
+
+        [PatchPrefix]
+        public static void PatchPrefix()
         {
-            if (Plugin.PluginEnabled.Value)
-            {
-                if (!Singleton<GameWorld>.Instantiated)
-                {
-                    return;
-                }
-
-                gameWorld = Singleton<GameWorld>.Instance;
-                try
-                {
-                    UpdateBots(gameWorld);
-                }
-                catch (Exception e)
-                {
-                    Logger.LogInfo(e);
-                }
-
-            }
-
-        }
-
-        public static Dictionary<int, Player> playerMapping = new Dictionary<int, Player>();
-        public static Dictionary<int, botPlayer> botMapping = new Dictionary<int, botPlayer>();
-        public static List<botPlayer> botList = new List<botPlayer>();
-        public static Player player;
-        public static botPlayer bot;
-        public void UpdateBots(GameWorld gameWorld)
-        {
-
-            int botCount = 0;
-
-            for (int i = 0; i < gameWorld.RegisteredPlayers.Count; i++)
-            {
-                player = gameWorld.RegisteredPlayers[i];
-                if (!player.IsYourPlayer)
-                {
-                    if (!botMapping.ContainsKey(player.Id) && (!playerMapping.ContainsKey(player.Id)))
-                    {
-                        playerMapping.Add(player.Id, player);
-                        var tempbotplayer = new botPlayer(player.Id);
-                        botMapping.Add(player.Id, tempbotplayer);
-                    }
-                    else if (!playerMapping.ContainsKey(player.Id))
-                    {
-                        playerMapping.Add(player.Id, player);
-                    }
-                    
-                    if (botMapping.ContainsKey(player.Id))
-                    {
-                        bot = botMapping[player.Id];
-                        bot.Distance = Vector3.Distance(player.Position, gameWorld.RegisteredPlayers[0].Position);
-
-                        //add bot if eligible
-                        if (bot.eligibleNow && !botList.Contains(bot))
-                        {
-                            botList.Add(bot);
-                        }
-
-                        if (!bot.timer.Enabled && player.CameraPosition != null)
-                        {
-                            bot.timer.Enabled = true;
-                            bot.timer.Start();
-                        }
-                    }
-
-                }
-            }
-
-            //add sort by distance
-            if (botList.Count > 1)
-            {
-                //botList = botList.OrderBy(o => o.Distance).ToList();
-                for (int i = 1; i < botList.Count; i++)
-                {
-                    botPlayer current = botList[i];
-                    int j = i - 1;
-                    while (j >= 0 && botList[j].Distance > current.Distance)
-                    {
-                        botList[j + 1] = botList[j];
-                        j--;
-                    }
-                    botList[j + 1] = current;
-                }
-            }
-            
-            for (int i = 0; i < botList.Count; i++)
-            {
-                if (botCount < BotLimit.Value && botList[i].Distance < BotDistance.Value)
-                {
-                    if (playerMapping.ContainsKey(botList[i].Id))
-                    {
-                        playerMapping[botList[i].Id].enabled = true;
-                        //playerMapping[botList[i].Id].gameObject.SetActive(true);
-                        
-                        botCount++;
-                    }
-                }
-                else
-                {
-                    if (playerMapping.ContainsKey(botList[i].Id))
-                    {
-                        playerMapping[botList[i].Id].enabled = false;
-                        //playerMapping[botList[i].Id].gameObject.SetActive(false);
-                    }
-                }
-            }
-        }
-        public static ElapsedEventHandler EligiblePool(botPlayer botplayer)
-        {
-            botplayer.timer.Stop();
-            botplayer.eligibleNow = true;
-            
-            return null;
-        }
-        public class botPlayer
-        {
-            public int Id { get; set; }
-            public float Distance { get; set; }
-            public bool eligibleNow { get; set; }
-
-            public Timer timer = new Timer(Plugin.TimeAfterSpawn.Value * 1000);
-            public botPlayer(int newID)
-            {
-                this.Id = newID;
-                this.eligibleNow = false;
-                //this.timer.Start();
-                this.timer.Enabled = false;
-                this.timer.AutoReset = false;
-                this.timer.Elapsed += Plugin.EligiblePool(this);
-
-                //create handler for this player to remove him from the distlist on death.
-                Player registeredplayer = playerMapping[this.Id];
-                registeredplayer.OnPlayerDeadOrUnspawn += (deadArgs) =>
-                {
-                    botPlayer botValue = null;
-
-                    if (botMapping.ContainsKey(deadArgs.Id))
-                    {
-                        botValue = botMapping[deadArgs.Id];
-                        botMapping.Remove(deadArgs.Id);
-                    }
-                    
-                    if (botList.Contains(botValue))
-                    {
-                        botList.Remove(botValue);
-                    }
-                    
-                    if (playerMapping.ContainsKey(deadArgs.Id))
-                    {
-                        playerMapping.Remove(deadArgs.Id);
-                    }
-                    
-                };
-            }
-
+            AILimitComponent aiLimitComponent = new AILimitComponent();
+            aiLimitComponent.Enable();
         }
     }
-    
-
 }
-

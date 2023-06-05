@@ -21,12 +21,11 @@ namespace AILimit
 
         private static GameWorld gameWorld;
 
-        private static Dictionary<int, Player> playerMapping = new Dictionary<int, Player>();
-        private static Dictionary<int, botPlayer> botMapping = new Dictionary<int, botPlayer>();
+        private static Dictionary<int, PlayerInfo> playerInfoMapping = new Dictionary<int, PlayerInfo>();
         private static List<botPlayer> botList = new List<botPlayer>();
         private static botPlayer bot;
         private static Player player;
-        private static BotControllerClass botControllerClass;
+        private static PlayerInfo playerInfo;
         private static BotSpawnerClass botSpawnerClass;
         protected static ManualLogSource Logger
         {
@@ -55,7 +54,7 @@ namespace AILimit
 
                 SetupBotDistanceForMap();
                 pluginEnabled = AILimitPlugin.PluginEnabled.Value;
-                botLimit = AILimitPlugin.BotLimit.Value; 
+                botLimit = AILimitPlugin.BotLimit.Value;
                 timeAfterSpawn = AILimitPlugin.TimeAfterSpawn.Value;
             }
         }
@@ -103,30 +102,27 @@ namespace AILimit
         private static void OnPlayerAdded(BotOwner botOwner)
         {
             player = botOwner.GetPlayer;
-            if (!player.IsYourPlayer && (!botMapping.ContainsKey(player.Id)) && (!playerMapping.ContainsKey(player.Id)))
+
+            if (!playerInfoMapping.ContainsKey(player.Id))
             {
-                playerMapping.Add(player.Id, player);
-                var tempbotplayer = new botPlayer(player.Id);
-                botMapping.Add(player.Id, tempbotplayer);
+                playerInfo = new PlayerInfo
+                {
+                    Player = player,
+                    Bot = new botPlayer(player.Id)
+                };
+                playerInfoMapping.Add(player.Id, playerInfo);
 
                 // Add bot to the botList immediately
-                botList.Add(tempbotplayer);
-            }
-            else if (!playerMapping.ContainsKey(player.Id))
-            {
-                playerMapping.Add(player.Id, player);
+                botList.Add(playerInfo.Bot);
             }
 
-            if (botMapping.ContainsKey(player.Id))
-            {
-                bot = botMapping[player.Id];
-                bot.Distance = Vector3.Distance(player.Position, gameWorld.MainPlayer.Position);
+            bot = playerInfo.Bot;
+            bot.Distance = Vector3.Distance(player.Position, gameWorld.MainPlayer.Position);
 
-                if (!bot.timer.Enabled && player.CameraPosition != null)
-                {
-                    bot.timer.Enabled = true;
-                    bot.timer.Start();
-                }
+            if (!bot.timer.Enabled && player.CameraPosition != null)
+            {
+                bot.timer.Enabled = true;
+                bot.timer.Start();
             }
 
             return;
@@ -138,21 +134,15 @@ namespace AILimit
         {
             player = botOwner.GetPlayer;
 
-            if (playerMapping.ContainsKey(player.Id))
+            if (playerInfoMapping.ContainsKey(player.Id))
             {
-                playerMapping.Remove(player.Id);
-            }
+                var playerInfo = playerInfoMapping[player.Id];
 
-            if (botMapping.ContainsKey(player.Id))
-            {
-                bot = botMapping[player.Id];
-
-                if (botList.Contains(bot))
+                if (botList.Contains(playerInfo.Bot))
                 {
-                    botList.Remove(bot);
+                    botList.Remove(playerInfo.Bot);
                 }
-
-                botMapping.Remove(player.Id);
+                playerInfoMapping.Remove(player.Id);
             }
         }
 
@@ -177,26 +167,22 @@ namespace AILimit
 
             botList.Sort((a, b) => a.Distance.CompareTo(b.Distance));
 
-            for (int i = 0; i < botList.Count; i++)
+            foreach (var bot in botList)
             {
-                botList[i].Distance = Vector3.Distance(playerMapping[botList[i].Id].Position, gameWorld.MainPlayer.Position);
+                bot.Distance = Vector3.Distance(playerInfoMapping[bot.Id].Player.Position, gameWorld.MainPlayer.Position);
 
                 if (botCount < AILimitPlugin.BotLimit.Value &&
-                    botList[i].Distance < botDistance &&
-                    botList[i].eligibleNow)
+                    bot.Distance < botDistance &&
+                    bot.eligibleNow)
                 {
-                    if (playerMapping.ContainsKey(botList[i].Id))
-                    {
-                        playerMapping[botList[i].Id].enabled = true;
-                        botCount++;
-                    }
+                    var player = playerInfoMapping[bot.Id].Player;
+                    player.enabled = true;
+                    botCount++;
                 }
-                else if (botList[i].eligibleNow)
+                else if (bot.eligibleNow)
                 {
-                    if (playerMapping.ContainsKey(botList[i].Id))
-                    {
-                        playerMapping[botList[i].Id].enabled = false;
-                    }
+                    var player = playerInfoMapping[bot.Id].Player;
+                    player.enabled = false;
                 }
             }
         }
@@ -211,11 +197,23 @@ namespace AILimit
             return null;
         }
 
+        private class PlayerInfo
+        {
+            public Player Player
+            {
+                get; set;
+            }
+            public botPlayer Bot
+            {
+                get; set;
+            }
+        }
+
         private class botPlayer
         {
             public int Id
             {
-                get; set;
+                get;
             }
             public float Distance
             {
@@ -225,7 +223,6 @@ namespace AILimit
             {
                 get; set;
             }
-
             public Timer timer;
 
             public botPlayer(int newID)
@@ -238,32 +235,23 @@ namespace AILimit
                 timer.AutoReset = false;
                 timer.Elapsed += (sender, e) => EligiblePool(this);
 
-                Player registeredplayer = playerMapping[Id];
+                Player registeredplayer = playerInfoMapping[Id].Player;
                 registeredplayer.OnPlayerDeadOrUnspawn += (deadArgs) =>
                 {
-                    botPlayer botValue = null;
-
-                    if (botMapping.ContainsKey(deadArgs.Id))
-                    {
-                        botValue = botMapping[deadArgs.Id];
-                        botMapping.Remove(deadArgs.Id);
-                    }
+                    var botValue = playerInfoMapping.ContainsKey(deadArgs.Id) ? playerInfoMapping[deadArgs.Id].Bot : null;
 
                     if (botList.Contains(botValue))
                     {
                         botList.Remove(botValue);
                     }
 
-                    if (playerMapping.ContainsKey(deadArgs.Id))
-                    {
-                        playerMapping.Remove(deadArgs.Id);
-                    }
+                    playerInfoMapping.Remove(deadArgs.Id);
                 };
             }
         }
+
+
+
+
     }
-
-
-
 }
-

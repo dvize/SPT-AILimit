@@ -1,14 +1,11 @@
-﻿using BepInEx;
-using BepInEx.Configuration;
+﻿using System;
+using System.Collections.Generic;
+using System.Timers;
+using AIlimit;
+using BepInEx.Logging;
 using Comfort.Common;
 using EFT;
-using System.Collections.Generic;
 using UnityEngine;
-using System.Timers;
-using System;
-using BepInEx.Logging;
-using AIlimit;
-using HarmonyLib;
 
 namespace AILimit
 {

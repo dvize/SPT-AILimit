@@ -157,14 +157,7 @@ namespace AILimit
         {
             if (AILimitPlugin.PluginEnabled.Value)
             {
-                try
-                {
-                    UpdateBots();
-                }
-                catch (Exception e)
-                {
-                    Debug.LogError(e);
-                }
+                UpdateBots();
             }
         }
 
@@ -195,13 +188,13 @@ namespace AILimit
                     bot.eligibleNow)
                 {
                     player = playerInfoMapping[bot.Id].Player;
-                    player.enabled = true;
+                    player.gameObject.SetActive(true);
                     botCount++;
                 }
                 else if (bot.eligibleNow)
                 {
                     player = playerInfoMapping[bot.Id].Player;
-                    player.enabled = false;
+                    player.gameObject.SetActive(false);
                 }
             }
 

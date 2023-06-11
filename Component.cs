@@ -104,44 +104,37 @@ namespace AILimit
 
         private void OnPlayerAdded(BotOwner botOwner)
         {
-            try
+
+            if (!botOwner.GetPlayer.IsYourPlayer)
             {
-                if (!botOwner.GetPlayer.IsYourPlayer)
+                player = botOwner.GetPlayer;
+                Logger.LogDebug("In OnPlayerAdded Method: " + player.gameObject.name);
+
+                var playerInfo = new PlayerInfo
                 {
-                    player = botOwner.GetPlayer;
-                    Logger.LogDebug("In OnPlayerAdded Method: " + player.gameObject.name);
+                    Player = player,
+                    Bot = new botPlayer(player.Id)
+                };
 
-                    var playerInfo = new PlayerInfo
-                    {
-                        Player = player,
-                        Bot = new botPlayer(player.Id)
-                    };
+                playerInfoMapping.Add(player.Id, playerInfo);
 
-                    playerInfoMapping.Add(player.Id, playerInfo);
+                // Add bot to the botList immediately
+                botList.Add(playerInfo.Bot);
 
-                    // Add bot to the botList immediately
-                    botList.Add(playerInfo.Bot);
-
-                    Logger.LogDebug("Added: " + player.Profile.Info.Settings.Role + " - " + player.Profile.Nickname + " to botList");
+                Logger.LogDebug("Added: " + player.Profile.Info.Settings.Role + " - " + player.Profile.Nickname + " to botList");
 
 
-                    bot = playerInfo.Bot;
-                    bot.Distance = Vector3.Distance(player.Position, gameWorld.MainPlayer.Position);
+                bot = playerInfo.Bot;
+                bot.Distance = Vector3.Distance(player.Position, gameWorld.MainPlayer.Position);
 
-                    if (!bot.timer.Enabled && player.CameraPosition != null)
-                    {
-                        bot.timer.Enabled = true;
-                        bot.timer.Start();
-                    }
-
+                if (!bot.timer.Enabled && player.CameraPosition != null)
+                {
+                    bot.timer.Enabled = true;
+                    bot.timer.Start();
                 }
-            }
-            catch (Exception e)
-            {
 
-                Logger.LogError(e);
             }
-
+            
         }
 
         private void OnPlayerRemoved(BotOwner botOwner)

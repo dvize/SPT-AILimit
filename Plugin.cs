@@ -114,8 +114,7 @@ namespace AIlimit
         [PatchPrefix]
         public static void PatchPrefix()
         {
-            AILimitComponent aiLimitComponent = new AILimitComponent();
-            aiLimitComponent.Enable();
+            AILimitComponent.Enable();
         }
     }
 }

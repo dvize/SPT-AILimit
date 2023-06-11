@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Threading.Tasks;
 using System.Timers;
 using AIlimit;
 using BepInEx.Logging;
@@ -11,18 +12,17 @@ namespace AILimit
 {
     public class AILimitComponent : MonoBehaviour
     {
-        private static bool pluginEnabled;
-        private static int botLimit;
         private static float botDistance;
-        private static float timeAfterSpawn;
+        private static int botCount;
 
         private static GameWorld gameWorld;
 
         private static Dictionary<int, PlayerInfo> playerInfoMapping = new Dictionary<int, PlayerInfo>();
         private static List<botPlayer> botList = new List<botPlayer>();
-        private static botPlayer bot;
-        private static Player player;
-        private static PlayerInfo playerInfo;
+        private static List<int> deadPlayers = new List<int>();
+        private botPlayer bot;
+        private Player player;
+
         private static BotSpawnerClass botSpawnerClass;
         protected static ManualLogSource Logger
         {
@@ -37,27 +37,33 @@ namespace AILimit
             }
         }
 
-        public void Enable()
+        private void Start()
+        {
+            botSpawnerClass.OnBotCreated += OnPlayerAdded;
+            botSpawnerClass.OnBotRemoved += OnPlayerRemoved;
+
+            SetupBotDistanceForMap();
+            Logger.LogDebug("Setup Bot Distance for Map: " + botDistance);
+        }
+        public static void Enable()
         {
             if (Singleton<IBotGame>.Instantiated)
             {
                 gameWorld = Singleton<GameWorld>.Instance;
                 gameWorld.GetOrAddComponent<AILimitComponent>();
 
+                //botspawner is wrong class. bots being enabled here will limit bots spawned.
+
                 botSpawnerClass = (Singleton<IBotGame>.Instance).BotsController.BotSpawner;
-                botSpawnerClass.OnBotCreated += OnPlayerAdded;
-                botSpawnerClass.OnBotRemoved += OnPlayerRemoved;
 
 
-                SetupBotDistanceForMap();
-                pluginEnabled = AILimitPlugin.PluginEnabled.Value;
-                botLimit = AILimitPlugin.BotLimit.Value;
-                timeAfterSpawn = AILimitPlugin.TimeAfterSpawn.Value;
+                Logger.LogDebug("AILimit Enabled");
             }
         }
 
-        private static void SetupBotDistanceForMap()
+        private void SetupBotDistanceForMap()
         {
+            Logger.LogDebug("Setup Bot Distance for Map");
             string location = gameWorld.MainPlayer.Location;
 
             switch (location)
@@ -96,38 +102,49 @@ namespace AILimit
             }
         }
 
-        private static void OnPlayerAdded(BotOwner botOwner)
+        private void OnPlayerAdded(BotOwner botOwner)
         {
-            player = botOwner.GetPlayer;
-
-            if (!playerInfoMapping.ContainsKey(player.Id))
+            try
             {
-                playerInfo = new PlayerInfo
+                if (!botOwner.GetPlayer.IsYourPlayer)
                 {
-                    Player = player,
-                    Bot = new botPlayer(player.Id)
-                };
-                playerInfoMapping.Add(player.Id, playerInfo);
+                    player = botOwner.GetPlayer;
+                    Logger.LogDebug("In OnPlayerAdded Method: " + player.gameObject.name);
 
-                // Add bot to the botList immediately
-                botList.Add(playerInfo.Bot);
+                    var playerInfo = new PlayerInfo
+                    {
+                        Player = player,
+                        Bot = new botPlayer(player.Id)
+                    };
+
+                    playerInfoMapping.Add(player.Id, playerInfo);
+
+                    // Add bot to the botList immediately
+                    botList.Add(playerInfo.Bot);
+
+                    Logger.LogDebug("Added: " + player.Profile.Info.Settings.Role + " - " + player.Profile.Nickname + " to botList");
+
+
+                    bot = playerInfo.Bot;
+                    bot.Distance = Vector3.Distance(player.Position, gameWorld.MainPlayer.Position);
+
+                    if (!bot.timer.Enabled && player.CameraPosition != null)
+                    {
+                        bot.timer.Enabled = true;
+                        bot.timer.Start();
+                    }
+
+                }
             }
-
-            bot = playerInfo.Bot;
-            bot.Distance = Vector3.Distance(player.Position, gameWorld.MainPlayer.Position);
-
-            if (!bot.timer.Enabled && player.CameraPosition != null)
+            catch (Exception e)
             {
-                bot.timer.Enabled = true;
-                bot.timer.Start();
+
+                Logger.LogError(e);
             }
 
-            return;
         }
 
-
-
-        private static void OnPlayerRemoved(BotOwner botOwner)
+        private void OnPlayerRemoved(BotOwner botOwner)
         {
             player = botOwner.GetPlayer;
 
@@ -160,37 +177,64 @@ namespace AILimit
 
         private void UpdateBots()
         {
-            int botCount = 0;
+            botCount = 0;
 
             botList.Sort((a, b) => a.Distance.CompareTo(b.Distance));
 
+            //clear dead players list so we don't try to clear them again.
+            deadPlayers.Clear();
+
             foreach (var bot in botList)
             {
+                // Check if the player is dead using a condition or if its null for some reason
+                if (playerInfoMapping.ContainsKey(bot.Id) && (!playerInfoMapping[bot.Id].Player.HealthController.IsAlive || playerInfoMapping[bot.Id].Player == null))
+                {
+                    // Add the dead player's ID to the list for removal
+                    deadPlayers.Add(bot.Id);
+                    continue; // Skip the rest of the loop for this iteration
+                }
+
+
                 bot.Distance = Vector3.Distance(playerInfoMapping[bot.Id].Player.Position, gameWorld.MainPlayer.Position);
 
                 if (botCount < AILimitPlugin.BotLimit.Value &&
                     bot.Distance < botDistance &&
                     bot.eligibleNow)
                 {
-                    var player = playerInfoMapping[bot.Id].Player;
+                    player = playerInfoMapping[bot.Id].Player;
                     player.enabled = true;
                     botCount++;
                 }
                 else if (bot.eligibleNow)
                 {
-                    var player = playerInfoMapping[bot.Id].Player;
+                    player = playerInfoMapping[bot.Id].Player;
                     player.enabled = false;
+                }
+            }
+
+            // Remove the dead players from the botList and playerInfoMapping
+            foreach (var deadPlayerId in deadPlayers)
+            {
+                if (playerInfoMapping.ContainsKey(deadPlayerId))
+                {
+                    var playerInfo = playerInfoMapping[deadPlayerId];
+                    botList.Remove(playerInfo.Bot);
+                    playerInfoMapping.Remove(deadPlayerId);
                 }
             }
         }
 
-
-
-        private static ElapsedEventHandler EligiblePool(botPlayer botplayer)
+        private static async Task<ElapsedEventHandler> EligiblePool(botPlayer botplayer)
         {
+            //async while loop with await until bot actually in game
+            while (playerInfoMapping[botplayer.Id].Player.CameraPosition == null || playerInfoMapping[botplayer.Id].Player.IsVisible == false)
+            {
+                await Task.Delay(1000);
+            }
+
             botplayer.timer.Stop();
             botplayer.eligibleNow = true;
-
+            Logger.LogDebug("Bot # " + playerInfoMapping[botplayer.Id].Player.gameObject.name + " is now eligible.");
             return null;
         }
 
@@ -210,7 +254,7 @@ namespace AILimit
         {
             public int Id
             {
-                get;
+                get; set;
             }
             public float Distance
             {
@@ -231,19 +275,6 @@ namespace AILimit
                 timer.Enabled = false;
                 timer.AutoReset = false;
                 timer.Elapsed += (sender, e) => EligiblePool(this);
-
-                Player registeredplayer = playerInfoMapping[Id].Player;
-                registeredplayer.OnPlayerDeadOrUnspawn += (deadArgs) =>
-                {
-                    var botValue = playerInfoMapping.ContainsKey(deadArgs.Id) ? playerInfoMapping[deadArgs.Id].Bot : null;
-
-                    if (botList.Contains(botValue))
-                    {
-                        botList.Remove(botValue);
-                    }
-
-                    playerInfoMapping.Remove(deadArgs.Id);
-                };
             }
         }
 

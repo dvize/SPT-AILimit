@@ -7,7 +7,7 @@ using EFT;
 
 namespace AIlimit
 {
-    [BepInPlugin("com.dvize.AILimit", "dvize.AILimit", "1.4.6")]
+    [BepInPlugin("com.dvize.AILimit", "dvize.AILimit", "1.4.8")]
     public class AILimitPlugin : BaseUnityPlugin
     {
         public static ConfigEntry<bool> PluginEnabled;

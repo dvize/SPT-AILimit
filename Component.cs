@@ -63,9 +63,9 @@ namespace AILimit
 
         private void SetupBotDistanceForMap()
         {
-            string location = gameWorld.MainPlayer.Location;
+            string location = gameWorld.MainPlayer.Location.ToLower();
             Logger.LogDebug($"The location detected is: {location}");
-            switch (location.ToLower())
+            switch (location)
             {
                 case "factory4_day":
                 case "factory4_night":

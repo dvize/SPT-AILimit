@@ -213,7 +213,7 @@ namespace AILimit
         private static async Task<ElapsedEventHandler> EligiblePool(botPlayer botplayer)
         {
             //async while loop with await until bot actually in game
-            while (playerInfoMapping[botplayer.Id].Player.CameraPosition == null || playerInfoMapping[botplayer.Id].Player.IsVisible == false)
+            while (playerInfoMapping[botplayer.Id].Player.CameraPosition == null)
             {
                 await Task.Delay(1000);
             }

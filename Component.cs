@@ -63,10 +63,9 @@ namespace AILimit
 
         private void SetupBotDistanceForMap()
         {
-            Logger.LogDebug("Setup Bot Distance for Map");
             string location = gameWorld.MainPlayer.Location;
-
-            switch (location)
+            Logger.LogDebug($"The location detected is: {location}");
+            switch (location.ToLower())
             {
                 case "factory4_day":
                 case "factory4_night":
@@ -78,7 +77,7 @@ namespace AILimit
                 case "interchange":
                     botDistance = AILimitPlugin.interchangeDistance.Value;
                     break;
-                case "reservbase":
+                case "rezervbase":
                     botDistance = AILimitPlugin.reserveDistance.Value;
                     break;
                 case "laboratory":

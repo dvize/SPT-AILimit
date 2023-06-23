@@ -49,7 +49,7 @@ namespace AIlimit
             factoryDistance = Config.Bind(
                 "Map Related",
                 "factory",
-                50.0f,
+                60.0f,
                 "Distance after which bots are disabled.");
 
             customsDistance = Config.Bind(

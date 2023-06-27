@@ -193,6 +193,8 @@ namespace AILimit
                 else if (bot.eligibleNow)
                 {
                     player = playerInfoMapping[bot.Id].Player;
+                    //clear ai decision queue so they don't do anything when they are disabled.
+                    player.AIData.BotOwner.DecisionQueue.Clear();
                     player.gameObject.SetActive(false);
                 }
             }

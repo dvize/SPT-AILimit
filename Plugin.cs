@@ -7,14 +7,13 @@ using EFT;
 
 namespace AIlimit
 {
-    [BepInPlugin("com.dvize.AILimit", "dvize.AILimit", "1.4.9")]
+    [BepInPlugin("com.dvize.AILimit", "dvize.AILimit", "1.5.0")]
     public class AILimitPlugin : BaseUnityPlugin
     {
         public static ConfigEntry<bool> PluginEnabled;
         public static ConfigEntry<int> BotLimit;
         public static ConfigEntry<float> BotDistance;
         public static ConfigEntry<float> TimeAfterSpawn;
-
 
         public static ConfigEntry<float> factoryDistance;
         public static ConfigEntry<float> interchangeDistance;
@@ -103,7 +102,6 @@ namespace AIlimit
 
             new NewGamePatch().Enable();
         }
-
     }
 
     //re-initializes each new game
@@ -117,4 +115,5 @@ namespace AIlimit
             AILimitComponent.Enable();
         }
     }
+
 }

@@ -1,20 +1,28 @@
 ﻿using System;
+using System.Collections;
 using System.Collections.Generic;
+using System.Data.SqlClient;
 using System.Linq;
+using System.Reflection;
 using System.Threading.Tasks;
 using System.Timers;
 using AIlimit;
+using BepInEx;
+using BepInEx.Bootstrap;
 using BepInEx.Logging;
 using Comfort.Common;
 using EFT;
 using EFT.Ballistics;
+using LootingBots.Patch.Components;
+using SAIN.Classes;
+using SAIN.Components;
 using UnityEngine;
 
 namespace AILimit
 {
     public class AILimitComponent : MonoBehaviour
     {
-        private static float botDistance;
+        private static float botDistanceLimit;
         private static int botCount;
 
         private static GameWorld gameWorld;
@@ -29,6 +37,7 @@ namespace AILimit
         private SortedSet<botPlayer> eligibleBotsQueue = new SortedSet<botPlayer>(new BotPlayerComparer());
         private float playerLastShotTime;
         private const float playerShotCooldown = 10f;
+        private static bool useCustomDisabling = false;
 
         private static BotSpawnerClass botSpawnerClass;
         protected static ManualLogSource Logger
@@ -51,7 +60,42 @@ namespace AILimit
             Singleton<GameWorld>.Instance.MainPlayer.OnDamageReceived += MainPlayer_OnDamageReceived;
 
             SetupBotDistanceForMap();
-            Logger.LogDebug("Setup Bot Distance for Map: " + botDistance);
+            Logger.LogDebug("Setup Bot Distance for Map: " + botDistanceLimit);
+
+            checkSainandLootingBotDependencies();
+        }
+
+        private void checkSainandLootingBotDependencies()
+        {
+            string sainAssemblyName = "SAIN-3.5.8.dll";
+            string lootingBotsAssemblyName = "skwizzy.LootingBots.dll";
+
+            bool isSainLoaded = false;
+            bool isLootingBotsLoaded = false;
+
+            foreach (var pluginInfoEntry in BepInEx.Bootstrap.Chainloader.PluginInfos)
+            {
+                var pluginInfo = pluginInfoEntry.Value;
+
+                if (pluginInfo.Location.EndsWith(sainAssemblyName))
+                {
+                    isSainLoaded = true;
+                }
+                else if (pluginInfo.Location.EndsWith(lootingBotsAssemblyName))
+                {
+                    isLootingBotsLoaded = true;
+                }
+            }
+
+            useCustomDisabling = isSainLoaded && isLootingBotsLoaded;
+            if (useCustomDisabling)
+            {
+                Logger.LogDebug("Sain and LootingBots detected. Using custom component disable");
+            }
+            else
+            {
+                Logger.LogDebug("Sain and LootingBots not detected. Using setActive(false)");
+            }
         }
 
         private void MainPlayer_OnDamageReceived(float damage, EBodyPart part, EDamageType type, float absorbed, MaterialType special)
@@ -82,34 +126,34 @@ namespace AILimit
             {
                 case "factory4_day":
                 case "factory4_night":
-                    botDistance = AILimitPlugin.factoryDistance.Value;
+                    botDistanceLimit = AILimitPlugin.factoryDistance.Value;
                     break;
                 case "bigmap":
-                    botDistance = AILimitPlugin.customsDistance.Value;
+                    botDistanceLimit = AILimitPlugin.customsDistance.Value;
                     break;
                 case "interchange":
-                    botDistance = AILimitPlugin.interchangeDistance.Value;
+                    botDistanceLimit = AILimitPlugin.interchangeDistance.Value;
                     break;
                 case "rezervbase":
-                    botDistance = AILimitPlugin.reserveDistance.Value;
+                    botDistanceLimit = AILimitPlugin.reserveDistance.Value;
                     break;
                 case "laboratory":
-                    botDistance = AILimitPlugin.laboratoryDistance.Value;
+                    botDistanceLimit = AILimitPlugin.laboratoryDistance.Value;
                     break;
                 case "lighthouse":
-                    botDistance = AILimitPlugin.lighthouseDistance.Value;
+                    botDistanceLimit = AILimitPlugin.lighthouseDistance.Value;
                     break;
                 case "shoreline":
-                    botDistance = AILimitPlugin.shorelineDistance.Value;
+                    botDistanceLimit = AILimitPlugin.shorelineDistance.Value;
                     break;
                 case "woods":
-                    botDistance = AILimitPlugin.woodsDistance.Value;
+                    botDistanceLimit = AILimitPlugin.woodsDistance.Value;
                     break;
                 case "tarkovstreets":
-                    botDistance = AILimitPlugin.tarkovstreetsDistance.Value;
+                    botDistanceLimit = AILimitPlugin.tarkovstreetsDistance.Value;
                     break;
                 default:
-                    botDistance = 200.0f;
+                    botDistanceLimit = 200.0f;
                     break;
             }
         }
@@ -175,39 +219,62 @@ namespace AILimit
         private void UpdateBots()
         {
             bool playerInBattle = (Time.time - playerLastShotTime) <= playerShotCooldown;
-
             botCount = 0;
             botList.Sort((a, b) => a.Distance.CompareTo(b.Distance));
-
-            // Clear dead and unspawned players list so we don't try to clear them again.
             deadPlayers.Clear();
 
             foreach (var bot in botList)
             {
                 if (playerInfoMapping.ContainsKey(bot.Id) && (!playerInfoMapping[bot.Id].Player.HealthController.IsAlive || playerInfoMapping[bot.Id].Player == null))
                 {
-                    // Add the dead player's ID to the list for removal
                     deadPlayers.Add(bot.Id);
                     continue;
                 }
 
                 bot.Distance = Vector3.Distance(playerInfoMapping[bot.Id].Player.Position, gameWorld.MainPlayer.Position);
 
-                if (botCount < AILimitPlugin.BotLimit.Value && bot.Distance < botDistance && bot.eligibleNow && !bot.isDisabled)
+                //if bot meets conditions and in distance and not during a battle, keep them activated.
+                if (botCount < AILimitPlugin.BotLimit.Value && bot.Distance < botDistanceLimit && bot.eligibleNow)
                 {
-                    //keep these guys active
                     player = playerInfoMapping[bot.Id].Player;
-                    player.gameObject.SetActive(true);
+                    if (useCustomDisabling)
+                    {
+                        DisableComponents(player, false);
+                    }
+                    else
+                    {
+                        player.gameObject.SetActive(true);
+                    }
                     botCount++;
                 }
-                //if we hit the count or distance limit and the bot is still active, send them for processing
-                else if (bot.eligibleNow && !bot.isDisabled)
+                //if player inbattle and is not eligiblenow
+                else if (!bot.eligibleNow && playerInBattle)
                 {
-                    eligibleBotsQueue.Add(bot);
+                    player = playerInfoMapping[bot.Id].Player;
+                    if (useCustomDisabling)
+                    {
+                        DisableComponents(player, true);
+                        StopAllCoroutines();
+                    }
+                    else
+                    {
+                        player.gameObject.SetActive(false);
+                    }
+                }
+                else if ((botCount >= AILimitPlugin.BotLimit.Value || bot.Distance >= botDistanceLimit) && bot.eligibleNow)
+                {
+                    player = playerInfoMapping[bot.Id].Player;
+                    if (useCustomDisabling)
+                    {
+                        DisableComponents(player, true);
+                    }
+                    else
+                    {
+                        player.gameObject.SetActive(false);
+                    }
                 }
             }
 
-            // Remove the dead players from the botList and playerInfoMapping
             foreach (var deadPlayerId in deadPlayers)
             {
                 if (playerInfoMapping.ContainsKey(deadPlayerId))
@@ -217,42 +284,67 @@ namespace AILimit
                     playerInfoMapping.Remove(deadPlayerId);
                 }
             }
-
-            // Process the eligible bots queue
-            ProcessEligibleBotsQueue();
         }
 
-        private void ProcessEligibleBotsQueue()
+        //create a list of classes and components to disable if found on gameObject
+        List<Type> componentTypes = new List<Type>
         {
-            bool playerInBattle = (Time.time - playerLastShotTime) <= playerShotCooldown;
-
-            foreach (var bot in eligibleBotsQueue)
+            typeof(SAINComponent),
+            typeof(CoverFinderComponent),
+            typeof(FlashLightComponent),
+            typeof(SquadClass),
+            typeof(BotEquipmentClass),
+            typeof(BotInfoClass),
+            typeof(SAINBotUnstuck),
+            typeof(HearingSensorClass),
+            typeof(BotTalkClass),
+            typeof(DecisionClass),
+            typeof(CoverClass),
+            typeof(SelfActionClass),
+            typeof(SteeringClass),
+            typeof(BotGrenadeClass),
+            typeof(SAIN_Mover),
+            typeof(NoBushESP),
+            typeof(EnemyController),
+            typeof(SoundsController),
+            typeof(LootingBrain)
+        };
+        private void DisableComponents(Player player, bool setInactive)
+        {
+            if (setInactive)
             {
-                if (playerInBattle && !bot.isDisabled && bot.eligibleNow)
+                //disable specific component types as well as the default behaviour
+                foreach (Type componentType in componentTypes)
                 {
-                    // Disable the bot if the player is in combat and it is not disabled
-                    bot.isDisabled = true;
+                    Component foundComponent = player.gameObject.GetComponent(componentType);
 
-                    // Set decision queue clear for now
-                    playerInfoMapping[bot.Id].Player.AIData.BotOwner.DecisionQueue.Clear();
-                    playerInfoMapping[bot.Id].Player.gameObject.SetActive(false);
+                    if (foundComponent != null)
+                    {
+                        ((Behaviour)foundComponent).enabled = false;
+                        PauseAllComponentCoroutines(foundComponent);
+                    }
                 }
-                else if (!playerInBattle && bot.isDisabled && botCount < AILimitPlugin.BotLimit.Value && bot.eligibleNow)
-                {
-                    // Re-enable the bot if the player is not in combat and it is disabled
-                    bot.isDisabled = false;
 
-                    // Set the bot as eligible
-                    bot.eligibleNow = true;
-
-                    // Activate the bot's game object
-                    playerInfoMapping[bot.Id].Player.gameObject.SetActive(true);
-                }
+                player.enabled = false;
             }
+            else
+            {
+                //re-enable all the specific component types and the base player
+                foreach (Type componentType in componentTypes)
+                {
+                    Component foundComponent = player.gameObject.GetComponent(componentType);
 
-            // Clear the eligible bots queue after processing
-            eligibleBotsQueue.Clear();
+                    if (foundComponent != null)
+                    {
+                        ResumeAllComponentCoroutines(foundComponent);
+                        ((Behaviour)foundComponent).enabled = true;
+                    }
+                }
+
+                player.enabled = true;
+            }
         }
+
         private class BotPlayerComparer : IComparer<botPlayer>
         {
             public int Compare(botPlayer x, botPlayer y)
@@ -276,6 +368,63 @@ namespace AILimit
             botplayer.eligibleNow = true;
             Logger.LogDebug("Bot # " + playerInfoMapping[botplayer.Id].Player.gameObject.name + " is now eligible.");
             return null;
+        }
+
+        private void PauseAllComponentCoroutines(Component component)
+        {
+            // Get the private 'm_Coroutines' field of the component
+            var coroutinesField = typeof(Component).GetField("m_Coroutines", BindingFlags.NonPublic | BindingFlags.Instance);
+
+            if (coroutinesField != null)
+            {
+                // Get the value of the 'm_Coroutines' field
+                var coroutines = (IEnumerator[])coroutinesField.GetValue(component);
+
+                // Create a copy of the coroutines array to store the original coroutines
+                var originalCoroutines = new IEnumerator[coroutines.Length];
+                coroutines.CopyTo(originalCoroutines, 0);
+
+                // Stop each coroutine by setting it to null
+                for (int i = 0; i < coroutines.Length; i++)
+                {
+                    coroutines[i] = null;
+                }
+
+                // Store the original coroutines in a separate array
+                component.gameObject.AddComponent<CoroutineContainer>().OriginalCoroutines = originalCoroutines;
+            }
+        }
+
+        private void ResumeAllComponentCoroutines(Component component)
+        {
+            // Get the CoroutineContainer attached to the component's GameObject
+            var container = component.gameObject.GetComponent<CoroutineContainer>();
+
+            if (container != null)
+            {
+                // Get the private 'm_Coroutines' field of the component
+                var coroutinesField = typeof(Component).GetField("m_Coroutines", BindingFlags.NonPublic | BindingFlags.Instance);
+
+                if (coroutinesField != null)
+                {
+                    // Get the value of the 'm_Coroutines' field
+                    var coroutines = (IEnumerator[])coroutinesField.GetValue(component);
+
+                    // Assign back the original coroutines from the CoroutineContainer
+                    container.OriginalCoroutines.CopyTo(coroutines, 0);
+
+                    // Remove the CoroutineContainer from the GameObject
+                    GameObject.Destroy(container);
+                }
+            }
+        }
+
+        private class CoroutineContainer : MonoBehaviour
+        {
+            public IEnumerator[] OriginalCoroutines
+            {
+                get; set;
+            }
         }
 
         private class PlayerInfo

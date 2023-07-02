@@ -58,13 +58,6 @@ namespace AILimit
         {
             playerLastShotTime = Time.time;
         }
-
-        private void OnDestroy()
-        {
-            botSpawnerClass.OnBotCreated -= OnPlayerAdded;
-            botSpawnerClass.OnBotRemoved -= OnPlayerRemoved;
-            Singleton<GameWorld>.Instance.MainPlayer.OnDamageReceived -= MainPlayer_OnDamageReceived;
-        }
         public static void Enable()
         {
             if (Singleton<IBotGame>.Instantiated)

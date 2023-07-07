@@ -1,8 +1,11 @@
 ﻿using System;
+using System.Collections;
 using System.Collections.Generic;
+using System.ComponentModel;
 using System.Threading.Tasks;
 using System.Timers;
 using AIlimit;
+using Aki.Reflection.CodeWrapper;
 using BepInEx.Logging;
 using Comfort.Common;
 using EFT;
@@ -103,47 +106,44 @@ namespace AILimit
 
         private void OnPlayerAdded(BotOwner botOwner)
         {
-
             if (!botOwner.GetPlayer.IsYourPlayer)
             {
                 player = botOwner.GetPlayer;
                 Logger.LogDebug("In OnPlayerAdded Method: " + player.gameObject.name);
 
-                var playerInfo = new PlayerInfo
+                if (!playerInfoMapping.ContainsKey(player.Id))
                 {
-                    Player = player,
-                    Bot = new botPlayer(player.Id)
-                };
+                    var playerInfo = new PlayerInfo
+                    {
+                        Player = player,
+                        Bot = new botPlayer(player.Id)
+                    };
 
-                playerInfoMapping.Add(player.Id, playerInfo);
+                    playerInfoMapping.Add(player.Id, playerInfo);
 
-                // Add bot to the botList immediately
-                botList.Add(playerInfo.Bot);
+                    // Add bot to the botList immediately
+                    botList.Add(playerInfo.Bot);
 
-                Logger.LogDebug("Added: " + player.Profile.Info.Settings.Role + " - " + player.Profile.Nickname + " to botList");
+                    Logger.LogDebug("Added: " + player.Profile.Info.Settings.Role + " - " + player.Profile.Nickname + " to botList");
 
+                    bot = playerInfo.Bot;
+                    bot.Distance = Vector3.Distance(player.Position, gameWorld.MainPlayer.Position);
 
-                bot = playerInfo.Bot;
-                bot.Distance = Vector3.Distance(player.Position, gameWorld.MainPlayer.Position);
-
-                if (!bot.timer.Enabled && player.CameraPosition != null)
-                {
-                    bot.timer.Enabled = true;
-                    bot.timer.Start();
+                    if (!bot.timer.Enabled && player.CameraPosition != null)
+                    {
+                        bot.timer.Enabled = true;
+                        bot.timer.Start();
+                    }
                 }
-
             }
-            
         }
 
         private void OnPlayerRemoved(BotOwner botOwner)
         {
             player = botOwner.GetPlayer;
-
             if (playerInfoMapping.ContainsKey(player.Id))
             {
                 var playerInfo = playerInfoMapping[player.Id];
-
                 if (botList.Contains(playerInfo.Bot))
                 {
                     botList.Remove(playerInfo.Bot);

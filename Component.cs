@@ -9,6 +9,7 @@ using Aki.Reflection.CodeWrapper;
 using BepInEx.Logging;
 using Comfort.Common;
 using EFT;
+using EFT.NextObservedPlayer;
 using UnityEngine;
 
 namespace AILimit
@@ -17,12 +18,12 @@ namespace AILimit
     {
         private static float botDistance;
         private static int botCount;
-
+        private static bool wasDisabled;
         private static GameWorld gameWorld;
 
         private static Dictionary<int, PlayerInfo> playerInfoMapping = new Dictionary<int, PlayerInfo>();
         private static List<botPlayer> botList = new List<botPlayer>();
-        private static List<int> deadPlayers = new List<int>();
+
         private botPlayer bot;
         private Player player;
 
@@ -166,16 +167,11 @@ namespace AILimit
 
             botList.Sort((a, b) => a.Distance.CompareTo(b.Distance));
 
-            //clear dead players list so we don't try to clear them again.
-            deadPlayers.Clear();
-
             foreach (var bot in botList)
             {
                 // Check if the player is dead using a condition or if its null for some reason
                 if (playerInfoMapping.ContainsKey(bot.Id) && (!playerInfoMapping[bot.Id].Player.HealthController.IsAlive || playerInfoMapping[bot.Id].Player == null))
                 {
-                    // Add the dead player's ID to the list for removal
-                    deadPlayers.Add(bot.Id);
                     continue; // Skip the rest of the loop for this iteration
                 }
 
@@ -187,7 +183,21 @@ namespace AILimit
                     bot.eligibleNow)
                 {
                     player = playerInfoMapping[bot.Id].Player;
+
+                    wasDisabled = false;
+
+                    if (player.gameObject.activeSelf == false)
+                    {
+                        wasDisabled = true; 
+                    }
+
                     player.gameObject.SetActive(true);
+
+                    if (wasDisabled)
+                    {
+                        player.BotsGroup.CalcGoalForBot(player.AIData.BotOwner);
+                    }
+
                     botCount++;
                 }
                 else if (bot.eligibleNow)
@@ -195,20 +205,12 @@ namespace AILimit
                     player = playerInfoMapping[bot.Id].Player;
                     //clear ai decision queue so they don't do anything when they are disabled.
                     player.AIData.BotOwner.DecisionQueue.Clear();
+                    player.AIData.BotOwner.Memory.GoalEnemy = null;
                     player.gameObject.SetActive(false);
                 }
             }
 
-            // Remove the dead players from the botList and playerInfoMapping
-            foreach (var deadPlayerId in deadPlayers)
-            {
-                if (playerInfoMapping.ContainsKey(deadPlayerId))
-                {
-                    var playerInfo = playerInfoMapping[deadPlayerId];
-                    botList.Remove(playerInfo.Bot);
-                    playerInfoMapping.Remove(deadPlayerId);
-                }
-            }
+           
         }
 
         private static async Task<ElapsedEventHandler> EligiblePool(botPlayer botplayer)

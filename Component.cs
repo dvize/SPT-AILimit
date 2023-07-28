@@ -1,15 +1,10 @@
-﻿using System;
-using System.Collections;
-using System.Collections.Generic;
-using System.ComponentModel;
+﻿using System.Collections.Generic;
 using System.Threading.Tasks;
 using System.Timers;
 using AIlimit;
-using Aki.Reflection.CodeWrapper;
 using BepInEx.Logging;
 using Comfort.Common;
 using EFT;
-using EFT.NextObservedPlayer;
 using UnityEngine;
 
 namespace AILimit
@@ -18,7 +13,6 @@ namespace AILimit
     {
         private static float botDistance;
         private static int botCount;
-        private static bool wasDisabled;
         private static GameWorld gameWorld;
 
         private static Dictionary<int, PlayerInfo> playerInfoMapping = new Dictionary<int, PlayerInfo>();
@@ -128,7 +122,8 @@ namespace AILimit
                     Logger.LogDebug("Added: " + player.Profile.Info.Settings.Role + " - " + player.Profile.Nickname + " to botList");
 
                     bot = playerInfo.Bot;
-                    bot.Distance = Vector3.Distance(player.Position, gameWorld.MainPlayer.Position);
+                    bot.Distance = Vector3.SqrMagnitude(player.Position - gameWorld.MainPlayer.Position);
+
 
                     if (!bot.timer.Enabled && player.CameraPosition != null)
                     {
@@ -169,48 +164,33 @@ namespace AILimit
 
             foreach (var bot in botList)
             {
-                // Check if the player is dead using a condition or if its null for some reason
-                if (playerInfoMapping.ContainsKey(bot.Id) && (!playerInfoMapping[bot.Id].Player.HealthController.IsAlive || playerInfoMapping[bot.Id].Player == null))
-                {
-                    continue; // Skip the rest of the loop for this iteration
+                player = playerInfoMapping[bot.Id].Player;
+
+                if (player == null || !player.HealthController.IsAlive)
+                {   
+                    continue; 
                 }
 
-
-                bot.Distance = Vector3.Distance(playerInfoMapping[bot.Id].Player.Position, gameWorld.MainPlayer.Position);
+                bot.Distance = Vector3.SqrMagnitude(player.Position - gameWorld.MainPlayer.Position);
 
                 if (botCount < AILimitPlugin.BotLimit.Value &&
-                    bot.Distance < botDistance &&
+                    bot.Distance < botDistance * botDistance &&
                     bot.eligibleNow)
                 {
-                    player = playerInfoMapping[bot.Id].Player;
-
-                    wasDisabled = false;
-
-                    if (player.gameObject.activeSelf == false)
-                    {
-                        wasDisabled = true; 
-                    }
 
                     player.gameObject.SetActive(true);
-
-                    if (wasDisabled)
-                    {
-                        player.BotsGroup.CalcGoalForBot(player.AIData.BotOwner);
-                    }
-
                     botCount++;
                 }
                 else if (bot.eligibleNow)
                 {
-                    player = playerInfoMapping[bot.Id].Player;
-                    //clear ai decision queue so they don't do anything when they are disabled.
+                    // Clear AI decision queue so they don't do anything when they are disabled.
                     player.AIData.BotOwner.DecisionQueue.Clear();
                     player.AIData.BotOwner.Memory.GoalEnemy = null;
                     player.gameObject.SetActive(false);
                 }
             }
 
-           
+
         }
 
         private static async Task<ElapsedEventHandler> EligiblePool(botPlayer botplayer)

@@ -49,55 +49,55 @@ namespace AIlimit
             factoryDistance = Config.Bind(
                 "Map Related",
                 "factory",
-                60.0f,
+                80.0f,
                 "Distance after which bots are disabled.");
 
             customsDistance = Config.Bind(
                 "Map Related",
                 "customs",
-                200.0f,
+                400.0f,
                 "Distance after which bots are disabled.");
 
             interchangeDistance = Config.Bind(
                 "Map Related",
                 "interchange",
-                200.0f,
+                400.0f,
                 "Distance after which bots are disabled.");
 
             laboratoryDistance = Config.Bind(
                 "Map Related",
                 "labs",
-                150.0f,
+                250.0f,
                 "Distance after which bots are disabled.");
 
             lighthouseDistance = Config.Bind(
                 "Map Related",
                 "lighthouse",
-                200.0f,
+                400.0f,
                 "Distance after which bots are disabled.");
 
             reserveDistance = Config.Bind(
                 "Map Related",
                 "reserve",
-                200.0f,
+                400.0f,
                 "Distance after which bots are disabled.");
 
             shorelineDistance = Config.Bind(
                 "Map Related",
                 "shoreline",
-                200.0f,
+                400.0f,
                 "Distance after which bots are disabled.");
 
             woodsDistance = Config.Bind(
                 "Map Related",
                 "woods",
-                200.0f,
+                400.0f,
                 "Distance after which bots are disabled.");
 
             tarkovstreetsDistance = Config.Bind(
                 "Map Related",
                 "streets",
-                200.0f,
+                400.0f,
                 "Distance after which bots are disabled.");
 
 

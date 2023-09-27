@@ -21,7 +21,7 @@ namespace AILimit
         private botPlayer bot;
         private Player player;
 
-        private static BotSpawnerClass botSpawnerClass;
+        private static BotSpawner botSpawnerClass;
         protected static ManualLogSource Logger
         {
             get; private set;
@@ -41,6 +41,15 @@ namespace AILimit
             botSpawnerClass.OnBotRemoved += OnPlayerRemoved;
 
             SetupBotDistanceForMap();
+
+            //reset static vars to work with new raid
+            playerInfoMapping = new Dictionary<int, PlayerInfo> {
+            };
+
+            botList = new List<botPlayer>
+            {
+            };
+
             Logger.LogDebug("Setup Bot Distance for Map: " + botDistance);
         }
         public static void Enable()

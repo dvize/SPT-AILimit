@@ -7,13 +7,21 @@ using EFT;
 
 namespace AIlimit
 {
+<<<<<<< Updated upstream
     [BepInPlugin("com.dvize.AILimit", "dvize.AILimit", "1.5.0")]
+=======
+    [BepInPlugin("com.dvize.AILimit", "dvize.AILimit", "1.6.2")]
+>>>>>>> Stashed changes
     public class AILimitPlugin : BaseUnityPlugin
     {
         public static ConfigEntry<bool> PluginEnabled;
         public static ConfigEntry<int> BotLimit;
         public static ConfigEntry<float> BotDistance;
         public static ConfigEntry<float> TimeAfterSpawn;
+<<<<<<< Updated upstream
+=======
+        public static ConfigEntry<int> FramesToCheck;
+>>>>>>> Stashed changes
 
         public static ConfigEntry<float> factoryDistance;
         public static ConfigEntry<float> interchangeDistance;
@@ -43,6 +51,12 @@ namespace AIlimit
                 "Time After Spawn",
                 10f,
                 "Time (sec) to wait before disabling");
+
+            FramesToCheck = Config.Bind(
+                "Main Settings",
+                "Frames To Check (60 is 1 sec)",
+                300,
+                "The number of frames to wait to check if any new bot changes to disable (slight performance increase?)");
 
 
             factoryDistance = Config.Bind(

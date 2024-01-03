@@ -29,7 +29,15 @@ namespace AILimit
 
         private static Dictionary<int, PlayerInfo> playerInfoMapping = new Dictionary<int, PlayerInfo>();
         private static List<botPlayer> botList = new List<botPlayer>();
+<<<<<<< Updated upstream
         private static List<int> deadPlayers = new List<int>();
+=======
+
+        private int frameCounter = 0;
+        
+        private static List<botPlayer> disabledBotsLastFrame = new List<botPlayer>();
+
+>>>>>>> Stashed changes
         private botPlayer bot;
         private Player player;
 
@@ -62,6 +70,7 @@ namespace AILimit
             SetupBotDistanceForMap();
             Logger.LogDebug("Setup Bot Distance for Map: " + botDistanceLimit);
 
+<<<<<<< Updated upstream
             checkSainandLootingBotDependencies();
         }
 
@@ -76,6 +85,12 @@ namespace AILimit
             foreach (var pluginInfoEntry in BepInEx.Bootstrap.Chainloader.PluginInfos)
             {
                 var pluginInfo = pluginInfoEntry.Value;
+=======
+            //reset static vars to work with new raid
+            playerInfoMapping.Clear();
+            botList.Clear();
+            disabledBotsLastFrame.Clear();
+>>>>>>> Stashed changes
 
                 if (pluginInfo.Location.EndsWith(sainAssemblyName))
                 {
@@ -205,6 +220,12 @@ namespace AILimit
                 {
                     botList.Remove(playerInfo.Bot);
                 }
+
+                if (disabledBotsLastFrame.Contains(playerInfo.Bot))
+                {
+                    disabledBotsLastFrame.Remove(playerInfo.Bot);
+                }
+
                 playerInfoMapping.Remove(player.Id);
             }
         }
@@ -213,21 +234,45 @@ namespace AILimit
         {
             if (AILimitPlugin.PluginEnabled.Value)
             {
-                UpdateBots();
+                frameCounter++;
+
+                if (frameCounter >= AILimitPlugin.FramesToCheck.Value)
+                {
+                    UpdateBots();
+                    frameCounter = 0;
+                }
+                else
+                {
+                    UpdateBotsWithDisabledList();
+                }
             }
         }
         private void UpdateBots()
         {
             bool playerInBattle = (Time.time - playerLastShotTime) <= playerShotCooldown;
             botCount = 0;
+<<<<<<< Updated upstream
+=======
+
+            //reset disabled bots for next set of 60 frames
+            disabledBotsLastFrame.Clear();
+
+>>>>>>> Stashed changes
             botList.Sort((a, b) => a.Distance.CompareTo(b.Distance));
             deadPlayers.Clear();
 
             foreach (var bot in botList)
             {
+<<<<<<< Updated upstream
                 if (playerInfoMapping.ContainsKey(bot.Id) && (!playerInfoMapping[bot.Id].Player.HealthController.IsAlive || playerInfoMapping[bot.Id].Player == null))
                 {
                     deadPlayers.Add(bot.Id);
+=======
+                player = playerInfoMapping[bot.Id].Player;
+
+                if (player == null || !player.HealthController.IsAlive)
+                {
+>>>>>>> Stashed changes
                     continue;
                 }
 
@@ -236,6 +281,7 @@ namespace AILimit
                 //if bot meets conditions and in distance and not during a battle, keep them activated.
                 if (botCount < AILimitPlugin.BotLimit.Value && bot.Distance < botDistanceLimit && bot.eligibleNow)
                 {
+<<<<<<< Updated upstream
                     player = playerInfoMapping[bot.Id].Player;
                     if (useCustomDisabling)
                     {
@@ -353,6 +399,41 @@ namespace AILimit
                     throw new ArgumentException("At least one object must implement IComparable.");
 
                 return x.Distance.CompareTo(y.Distance);
+=======
+                    player.gameObject.SetActive(true);
+                    botCount++;
+                }
+                else if (bot.eligibleNow && !disabledBotsLastFrame.Contains(bot))
+                {
+                    // Clear AI decision queue so they don't do anything when they are disabled.
+                    player.AIData.BotOwner.DecisionQueue.Clear();
+                    player.AIData.BotOwner.Memory.GoalEnemy = null;
+                    player.gameObject.SetActive(false);
+                    disabledBotsLastFrame.Add(bot);
+                }
+            }
+
+            
+        }
+
+        private void UpdateBotsWithDisabledList()
+        {
+            foreach (var bot in disabledBotsLastFrame)
+            {
+                player = playerInfoMapping[bot.Id].Player;
+
+                if (player == null || !player.HealthController.IsAlive)
+                {
+                    continue;
+                }
+
+                if (bot.eligibleNow)
+                {
+                    player.AIData.BotOwner.DecisionQueue.Clear();
+                    player.AIData.BotOwner.Memory.GoalEnemy = null;
+                    player.gameObject.SetActive(false);
+                }
+>>>>>>> Stashed changes
             }
         }
 

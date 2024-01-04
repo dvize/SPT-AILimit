@@ -15,6 +15,10 @@ namespace AILimit
         private static int botCount;
         private static GameWorld gameWorld;
 
+        private int frameCounter = 0;
+        private List<botPlayer> disabledBotsLastFrame = new List<botPlayer>();
+
+
         private static Dictionary<int, PlayerInfo> playerInfoMapping = new Dictionary<int, PlayerInfo>();
         private static List<botPlayer> botList = new List<botPlayer>();
 
@@ -153,6 +157,12 @@ namespace AILimit
                 {
                     botList.Remove(playerInfo.Bot);
                 }
+
+                if (disabledBotsLastFrame.Contains(playerInfo.Bot))
+                {
+                    disabledBotsLastFrame.Remove(playerInfo.Bot);
+                }
+
                 playerInfoMapping.Remove(player.Id);
             }
         }
@@ -161,13 +171,24 @@ namespace AILimit
         {
             if (AILimitPlugin.PluginEnabled.Value)
             {
-                UpdateBots();
+                frameCounter++;
+
+                if (frameCounter >= AILimitPlugin.FramesToCheck.Value)
+                {
+                    UpdateBots();
+                    frameCounter = 0; // Reset the frame counter
+                }
+                else
+                {
+                    UpdateBotsWithDisabledList();
+                }
             }
         }
 
         private void UpdateBots()
         {
             botCount = 0;
+            disabledBotsLastFrame.Clear();
 
             botList.Sort((a, b) => a.Distance.CompareTo(b.Distance));
 
@@ -176,8 +197,8 @@ namespace AILimit
                 player = playerInfoMapping[bot.Id].Player;
 
                 if (player == null || !player.HealthController.IsAlive)
-                {   
-                    continue; 
+                {
+                    continue;
                 }
 
                 bot.Distance = Vector3.SqrMagnitude(player.Position - gameWorld.MainPlayer.Position);
@@ -186,20 +207,38 @@ namespace AILimit
                     bot.Distance < botDistance * botDistance &&
                     bot.eligibleNow)
                 {
-
                     player.gameObject.SetActive(true);
                     botCount++;
                 }
-                else if (bot.eligibleNow)
+                else if (bot.eligibleNow && !disabledBotsLastFrame.Contains(bot))
                 {
                     // Clear AI decision queue so they don't do anything when they are disabled.
                     player.AIData.BotOwner.DecisionQueue.Clear();
                     player.AIData.BotOwner.Memory.GoalEnemy = null;
                     player.gameObject.SetActive(false);
+                    disabledBotsLastFrame.Add(bot);
                 }
             }
+        }
 
+        private void UpdateBotsWithDisabledList()
+        {
+            foreach (var bot in disabledBotsLastFrame)
+            {
+                player = playerInfoMapping[bot.Id].Player;
 
+                if (player == null || !player.HealthController.IsAlive)
+                {
+                    continue;
+                }
+
+                if (bot.eligibleNow)
+                {
+                    player.AIData.BotOwner.DecisionQueue.Clear();
+                    player.AIData.BotOwner.Memory.GoalEnemy = null;
+                    player.gameObject.SetActive(false);
+                }
+            }
         }
 
         private static async Task<ElapsedEventHandler> EligiblePool(botPlayer botplayer)

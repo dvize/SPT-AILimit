@@ -3,11 +3,12 @@ using AILimit;
 using Aki.Reflection.Patching;
 using BepInEx;
 using BepInEx.Configuration;
+using dvize.AILimit;
 using EFT;
 
 namespace AIlimit
 {
-    [BepInPlugin("com.dvize.AILimit", "dvize.AILimit", "1.6.2")]
+    [BepInPlugin("com.dvize.AILimit", "dvize.AILimit", "1.7.0")]
     public class AILimitPlugin : BaseUnityPlugin
     {
         public static ConfigEntry<bool> PluginEnabled;
@@ -106,8 +107,9 @@ namespace AIlimit
                 400.0f,
                 "Distance after which bots are disabled.");
 
-
+            ConfigManager.Initialize();
             new NewGamePatch().Enable();
+
         }
 
     }

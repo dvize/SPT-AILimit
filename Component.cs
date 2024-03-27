@@ -4,6 +4,7 @@ using System.Timers;
 using AIlimit;
 using BepInEx.Logging;
 using Comfort.Common;
+using dvize.AILimit;
 using EFT;
 using UnityEngine;
 
@@ -11,7 +12,7 @@ namespace AILimit
 {
     public class AILimitComponent : MonoBehaviour
     {
-        private static float botDistance;
+        internal static float botDistance;
         private static int botCount;
         private static GameWorld gameWorld;
 
@@ -47,7 +48,8 @@ namespace AILimit
             SetupBotDistanceForMap();
 
             //reset static vars to work with new raid
-            playerInfoMapping = new Dictionary<int, PlayerInfo> {
+            playerInfoMapping = new Dictionary<int, PlayerInfo>
+            {
             };
 
             botList = new List<botPlayer>
@@ -71,6 +73,20 @@ namespace AILimit
                 Logger.LogDebug("AILimit Enabled");
             }
         }
+        private void OnEnable()
+        {
+            // Map distance changes all handled by the same method
+            ConfigManager.OnFactoryDistanceChanged += newValue => SettingsHandler.HandleMapDistanceChange("factory", newValue);
+            ConfigManager.OnInterchangeDistanceChanged += newValue => SettingsHandler.HandleMapDistanceChange("interchange", newValue);
+            ConfigManager.OnLaboratoryDistanceChanged += newValue => SettingsHandler.HandleMapDistanceChange("laboratory", newValue);
+            ConfigManager.OnLighthouseDistanceChanged += newValue => SettingsHandler.HandleMapDistanceChange("lighthouse", newValue);
+            ConfigManager.OnReserveDistanceChanged += newValue => SettingsHandler.HandleMapDistanceChange("reserve", newValue);
+            ConfigManager.OnShorelineDistanceChanged += newValue => SettingsHandler.HandleMapDistanceChange("shoreline", newValue);
+            ConfigManager.OnWoodsDistanceChanged += newValue => SettingsHandler.HandleMapDistanceChange("woods", newValue);
+            ConfigManager.OnCustomsDistanceChanged += newValue => SettingsHandler.HandleMapDistanceChange("customs", newValue);
+            ConfigManager.OnTarkovStreetsDistanceChanged += newValue => SettingsHandler.HandleMapDistanceChange("tarkovstreets", newValue);
+        }
+
 
         private void SetupBotDistanceForMap()
         {
@@ -253,6 +269,21 @@ namespace AILimit
             botplayer.eligibleNow = true;
             Logger.LogDebug("Bot # " + playerInfoMapping[botplayer.Id].Player.gameObject.name + " is now eligible.");
             return null;
+        }
+
+
+        private void OnDisable()
+        {
+            // Unsubscribe from map distance changes
+            ConfigManager.OnFactoryDistanceChanged -= newValue => SettingsHandler.HandleMapDistanceChange("factory", newValue);
+            ConfigManager.OnInterchangeDistanceChanged -= newValue => SettingsHandler.HandleMapDistanceChange("interchange", newValue);
+            ConfigManager.OnLaboratoryDistanceChanged -= newValue => SettingsHandler.HandleMapDistanceChange("laboratory", newValue);
+            ConfigManager.OnLighthouseDistanceChanged -= newValue => SettingsHandler.HandleMapDistanceChange("lighthouse", newValue);
+            ConfigManager.OnReserveDistanceChanged -= newValue => SettingsHandler.HandleMapDistanceChange("reserve", newValue);
+            ConfigManager.OnShorelineDistanceChanged -= newValue => SettingsHandler.HandleMapDistanceChange("shoreline", newValue);
+            ConfigManager.OnWoodsDistanceChanged -= newValue => SettingsHandler.HandleMapDistanceChange("woods", newValue);
+            ConfigManager.OnCustomsDistanceChanged -= newValue => SettingsHandler.HandleMapDistanceChange("customs", newValue);
+            ConfigManager.OnTarkovStreetsDistanceChanged -= newValue => SettingsHandler.HandleMapDistanceChange("tarkovstreets", newValue);
         }
 
         private class PlayerInfo

@@ -1,6 +1,6 @@
 ﻿using System.Reflection;
 using AILimit;
-using Aki.Reflection.Patching;
+using SPT.Reflection.Patching;
 using BepInEx;
 using BepInEx.Configuration;
 using dvize.AILimit;
@@ -8,7 +8,7 @@ using EFT;
 
 namespace AIlimit
 {
-    [BepInPlugin("com.dvize.AILimit", "dvize.AILimit", "1.7.0")]
+    [BepInPlugin("com.dvize.AILimit", "dvize.AILimit", "1.8.0")]
     public class AILimitPlugin : BaseUnityPlugin
     {
         public static ConfigEntry<bool> PluginEnabled;
@@ -26,6 +26,7 @@ namespace AIlimit
         public static ConfigEntry<float> woodsDistance;
         public static ConfigEntry<float> customsDistance;
         public static ConfigEntry<float> tarkovstreetsDistance;
+        public static ConfigEntry<float> groundZeroDistance;
         private void Awake()
         {
             PluginEnabled = Config.Bind(
@@ -62,6 +63,12 @@ namespace AIlimit
             customsDistance = Config.Bind(
                 "Map Related",
                 "customs",
+                400.0f,
+                "Distance after which bots are disabled.");
+
+            groundZeroDistance = Config.Bind(
+                "Map Related",
+                "ground zero",
                 400.0f,
                 "Distance after which bots are disabled.");
 

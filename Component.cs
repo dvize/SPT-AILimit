@@ -77,6 +77,7 @@ namespace AILimit
         {
             // Map distance changes all handled by the same method
             ConfigManager.OnFactoryDistanceChanged += newValue => SettingsHandler.HandleMapDistanceChange("factory", newValue);
+            ConfigManager.OnGroundZeroDistanceChanged += newValue => SettingsHandler.HandleMapDistanceChange("groundzero", newValue);
             ConfigManager.OnInterchangeDistanceChanged += newValue => SettingsHandler.HandleMapDistanceChange("interchange", newValue);
             ConfigManager.OnLaboratoryDistanceChanged += newValue => SettingsHandler.HandleMapDistanceChange("laboratory", newValue);
             ConfigManager.OnLighthouseDistanceChanged += newValue => SettingsHandler.HandleMapDistanceChange("lighthouse", newValue);
@@ -100,6 +101,9 @@ namespace AILimit
                     break;
                 case "bigmap":
                     botDistance = AILimitPlugin.customsDistance.Value;
+                    break;
+                case "sandbox":
+                    botDistance = AILimitPlugin.groundZeroDistance.Value;
                     break;
                 case "interchange":
                     botDistance = AILimitPlugin.interchangeDistance.Value;
@@ -276,6 +280,7 @@ namespace AILimit
         {
             // Unsubscribe from map distance changes
             ConfigManager.OnFactoryDistanceChanged -= newValue => SettingsHandler.HandleMapDistanceChange("factory", newValue);
+            ConfigManager.OnGroundZeroDistanceChanged -= newValue => SettingsHandler.HandleMapDistanceChange("groundzero", newValue);
             ConfigManager.OnInterchangeDistanceChanged -= newValue => SettingsHandler.HandleMapDistanceChange("interchange", newValue);
             ConfigManager.OnLaboratoryDistanceChanged -= newValue => SettingsHandler.HandleMapDistanceChange("laboratory", newValue);
             ConfigManager.OnLighthouseDistanceChanged -= newValue => SettingsHandler.HandleMapDistanceChange("lighthouse", newValue);

@@ -21,6 +21,9 @@ namespace dvize.AILimit
                 case "bigmap":
                     AILimitComponent.botDistance = AILimitPlugin.customsDistance.Value;
                     break;
+                case "sandbox":
+                    AILimitComponent.botDistance = AILimitPlugin.groundZeroDistance.Value;
+                    break;
                 case "interchange":
                     AILimitComponent.botDistance = AILimitPlugin.interchangeDistance.Value;
                     break;

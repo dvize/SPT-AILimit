@@ -6,6 +6,7 @@ namespace dvize.AILimit
     internal static class ConfigManager
     {
         public static event Action<float> OnFactoryDistanceChanged;
+        public static event Action<float> OnGroundZeroDistanceChanged;
         public static event Action<float> OnInterchangeDistanceChanged;
         public static event Action<float> OnLaboratoryDistanceChanged;
         public static event Action<float> OnLighthouseDistanceChanged;
@@ -19,6 +20,7 @@ namespace dvize.AILimit
         {
             // Subscribe to the SettingChanged event for each ConfigEntry
             AILimitPlugin.factoryDistance.SettingChanged += (sender, e) => OnFactoryDistanceChanged?.Invoke(AILimitPlugin.factoryDistance.Value);
+            AILimitPlugin.groundZeroDistance.SettingChanged += (sender, e) => OnGroundZeroDistanceChanged?.Invoke(AILimitPlugin.groundZeroDistance.Value);
             AILimitPlugin.interchangeDistance.SettingChanged += (sender, e) => OnInterchangeDistanceChanged?.Invoke(AILimitPlugin.interchangeDistance.Value);
             AILimitPlugin.laboratoryDistance.SettingChanged += (sender, e) => OnLaboratoryDistanceChanged?.Invoke(AILimitPlugin.laboratoryDistance.Value);
             AILimitPlugin.lighthouseDistance.SettingChanged += (sender, e) => OnLighthouseDistanceChanged?.Invoke(AILimitPlugin.lighthouseDistance.Value);
